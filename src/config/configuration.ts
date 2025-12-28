@@ -129,8 +129,8 @@ export default registerAs('app', (): AppConfig => {
       tablePrefix: getEnvVar('NEST_DATABASE_TABLE_PREFIX', 'ra_'),
       timestamps: {
         enabled: getEnvVar('NEST_DATABASE_ENABLE_TIMESTAMPS', true),
-        createdAt: getEnvVar('NEST_DATABASE_CREATE_TIME', 'create_time'),
-        updatedAt: getEnvVar('NEST_DATABASE_UPDATE_TIME', 'update_time'),
+        createdAt: getEnvVar('NEST_DATABASE_CREATED_AT', 'createdAt'),
+        updatedAt: getEnvVar('NEST_DATABASE_UPDATE_AT', 'updatedAt'),
       },
       synchronize: getEnvVar('NEST_DATABASE_SYNCHRONIZE', environment === 'development'),
       logging: getEnvVar('NEST_DATABASE_LOGGING', false),
