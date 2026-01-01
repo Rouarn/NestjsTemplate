@@ -126,7 +126,7 @@ export default registerAs('app', (): AppConfig => {
       username: getEnvVar('NEST_DATABASE_USER', 'root'),
       password: getEnvVar('NEST_DATABASE_PASSWORD', ''),
       database: getEnvVar('NEST_DATABASE_NAME', 'nestjs_app'),
-      tablePrefix: getEnvVar('NEST_DATABASE_TABLE_PREFIX', 'ra_'),
+      tablePrefix: getEnvVar('NEST_DATABASE_TABLE_PREFIX', ''),
       timestamps: {
         enabled: getEnvVar('NEST_DATABASE_ENABLE_TIMESTAMPS', true),
         createdAt: getEnvVar('NEST_DATABASE_CREATED_AT', 'createdAt'),
