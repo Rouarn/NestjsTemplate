@@ -87,12 +87,27 @@ function configureSwagger(
   const swaggerOptions = appConfig.swaggerOptions;
   if (!swaggerOptions.enabled) return;
 
-  const options = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .addBearerAuth()
     .setTitle(swaggerOptions.title)
     .setDescription(swaggerOptions.description)
-    .setVersion(swaggerOptions.version)
-    .build();
+    .setVersion(swaggerOptions.version);
+
+  // 如果启用了 Header 版本控制，添加全局 Header 参数
+  if (appConfig.apiVersioning.type === 'header') {
+    builder.addGlobalParameters({
+      name: appConfig.apiVersioning.header,
+      in: 'header',
+      description: 'API 版本号',
+      required: false,
+      schema: {
+        type: 'string',
+        default: appConfig.apiVersioning.defaultVersion,
+      },
+    });
+  }
+
+  const options = builder.build();
 
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup(swaggerOptions.prefix, app, document);
