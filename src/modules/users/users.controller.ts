@@ -83,9 +83,10 @@ export class UsersController {
 
   /**
    * 更新用户信息
-   * 管理员可更新任意用户，普通用户只能更新自己
+   * 管理员可更新任意用户，普通用户只能更新自己的信息
    */
   @Patch(':id')
+  @RequirePermissions(PermissionAction.USER_UPDATE)
   @ApiOperation({ summary: '更新用户信息', description: '更新用户资料信息' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123', type: UpdateUserDto })
   @ApiResponse({

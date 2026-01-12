@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { CurrentUser } from '@/common/interfaces';
+import { BusinessExceptionFactory } from '@/common/exceptions';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { RbacService } from '../services/rbac.service';
 
@@ -26,12 +27,22 @@ export class PermissionsGuard implements CanActivate {
     const user = request.user as CurrentUser;
 
     if (!user?.userId) {
-      return false;
+      throw BusinessExceptionFactory.unauthorized('用户未登录');
     }
 
     const userPermissions = await this.rbacService.getUserPermissions(user.userId);
 
     // ANY strategy: 只要拥有其中一个权限即可
-    return requiredPermissions.some((permission) => userPermissions.includes(permission));
+    const hasPermission = requiredPermissions.some((permission) =>
+      userPermissions.includes(permission),
+    );
+
+    if (!hasPermission) {
+      throw BusinessExceptionFactory.forbidden('操作权限不足', {
+        required: requiredPermissions,
+      });
+    }
+
+    return true;
   }
 }

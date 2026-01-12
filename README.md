@@ -1,243 +1,176 @@
 # NestJS Template
 
-基于 NestJS 的现代化后端 API 项目模板，内置统一配置系统、JWT 认证、文件管理、缓存（Redis/内存）、数据库 ORM（TypeORM/MySQL）、版本化 API 与 Swagger 文档等能力，开箱即用、结构清晰、易于扩展。
+基于 NestJS 11 构建的现代化企业级后端 API 模板，集成了成熟的认证、RBAC 权限管理、文件服务与最佳实践，旨在提供开箱即用、安全可靠的开发基础。
 
-## 特性
+## 🚀 核心特性
 
-- 统一配置访问：通过 `AppConfigService` 以 `app.*` 命名空间访问配置，类型安全、可维护
-- 环境文件映射：支持 `.env`、`.env.development`、`.env.production`，自动映射到结构化配置
-- 认证授权：JWT 登录、令牌黑名单、用户状态校验、自定义 `JwtAuthGuard`
-- 文件服务：静态资源托管、上传限制、类型校验、本地存储适配器
-- 缓存系统：Redis 优先，失败时自动降级为内存缓存，统一接口封装
-- 数据库：TypeORM + MySQL，命名策略、时间戳字段支持
-- API 版本化：URI 版本（`/api/v1`），可通过配置切换前缀与版本
-- Swagger 文档：UI 与 JSON 导出，开发/测试环境自动启用
-- 代码规范：ESLint + Prettier + `lint-staged` + Husky
+- **模块化架构**: 清晰的领域驱动设计，核心模块 (Auth, User, RBAC, Files) 职责分离。
+- **高级认证系统 (Auth)**:
+  - **JWT 双令牌机制**: Access Token (短效) + Refresh Token (长效)，支持自动刷新与无感续期。
+  - **安全防护**: 集成 SVG 验证码 (Captcha)，bcrypt 密码强加密，防暴力破解（账号锁定策略），Token 黑名单机制。
+  - **完整流程**: 登录、注册、注销、修改密码、踢出用户、在线用户监控。
+- **RBAC 权限管理**:
+  - **基于角色的访问控制**: 支持角色继承 (Tree Structure) 与多对多用户关联。
+  - **细粒度权限**: 基于字符串的权限动作 (如 `user:create`)，支持动态权限检查。
+  - **自动化引导**: 系统启动时自动初始化默认角色 (`admin`, `editor`, `user`, `guest`) 与基础权限数据。
+  - **开发体验**: 提供 `@RequirePermissions()` 装饰器与全局 `PermissionsGuard`。
+- **文件服务 (Files)**:
+  - **本地存储适配**: 封装统一的存储接口，支持文件上传、下载与流式传输。
+  - **严格校验**: 可配置的文件类型 (MIME) 与大小限制。
+  - **元数据管理**: 完整记录文件信息（原名、大小、MIME、存储路径）至数据库。
+- **高性能缓存 (Cache)**:
+  - **多级策略**: 优先使用 Redis，连接失败自动降级为内存缓存 (Memory Cache)。
+  - **统一封装**: 提供标准化的 `ICacheService` 接口，业务层无感知底层实现。
+- **健壮的基础设施**:
+  - **统一配置**: 基于 `AppConfigService` 的强类型配置管理。
+  - **数据库**: TypeORM 0.3 + MySQL 8，支持自动迁移与实体同步。
+  - **标准化响应**: 统一的 API 响应格式 (Interceptors) 与全局异常处理 (Filters)。
+  - **API 文档**: 集成 Swagger (OpenAPI 3)，自动生成接口文档。
+  - **数据工具**: 内置 Excel 导入导出 (`import-export`) 能力。
 
-## 技术栈
+## 🛠 技术栈
 
-- NestJS 11、TypeScript 5
-- TypeORM 0.3、MySQL 8
-- ioredis 5（缓存层）
-- Swagger 11（API 文档）
-- ESLint、Prettier、Husky（代码质量）
+| 类别       | 技术选型         | 说明                        |
+| ---------- | ---------------- | --------------------------- |
+| **框架**   | NestJS 11        | 核心服务端框架 (TypeScript) |
+| **语言**   | TypeScript 5     | 强类型开发体验              |
+| **数据库** | MySQL 8          | 关系型数据库                |
+| **ORM**    | TypeORM 0.3      | 数据库对象映射              |
+| **缓存**   | Redis (ioredis)  | 高性能缓存存储              |
+| **文档**   | Swagger          | API 接口文档生成            |
+| **工具链** | ESLint, Prettier | 代码规范与格式化            |
+| **包管理** | pnpm             | 高效的依赖管理              |
 
-## 快速开始
+## 📦 快速开始
 
-1. 安装依赖
+### 1. 环境准备
+
+确保本地已安装以下环境：
+
+- **Node.js**: >= 22.18.0
+- **pnpm**: >= 10.15.0
+- **MySQL**: >= 8.0
+- **Redis**: >= 6.0 (可选，推荐安装)
+
+### 2. 安装依赖
 
 ```bash
 pnpm install
 ```
 
-2. 启动开发环境
+### 3. 配置环境变量
 
-```bash
-pnpm run start:dev
-```
-
-3. 启动测试环境
-
-```bash
-pnpm run start:test
-```
-
-4. 构建与生产启动
-
-```bash
-pnpm run build:prod
-pnpm run start:prod
-```
-
-## 脚本命令
-
-- 开发启动：`pnpm run start` / `pnpm run start:dev`
-- 测试启动：`pnpm run start:test` / `pnpm run start:test-watch`
-- 生产构建：`pnpm run build:prod`
-- 代码修复：`pnpm run code:fix`（格式化 + ESLint 修复）
-- 代码检查：`pnpm run code:check`（格式化检查 + ESLint + TypeCheck）
-- 环境检查：`pnpm run env:check`
-- 环境初始化：`pnpm run env:setup`
-- 生成资源：`pnpm run g:res`
-- 部署流程：`pnpm run deploy`（修复代码 → 构建 → 生成部署资源）
-
-## 运行要求
-
-- Node：`>=22.18.0`
-- pnpm：`>=10.15.0`
-
-## 目录结构（关键文件）
-
-```
-src/
-  app.module.ts                // 根模块，注册核心能力与业务模块
-  main.ts                      // 启动文件，统一应用初始化
-  config/
-    app-config.service.ts      // 统一配置访问服务（AppConfigService）
-    configuration.ts           // .env → 结构化配置映射（registerAs('app')）
-    validation.schema.ts       // 环境变量校验（Joi）
-    index.ts                   // 配置模块聚合导出
-    types.ts                   // 配置类型定义
-  common/
-    guards/jwt-auth.guard.ts   // 自定义 JWT 守卫（黑名单/状态校验）
-    services/bootstrap-logger.service.ts // 启动日志服务（自定义 ConsoleLogger）
-  shared/cache/                // 缓存系统（Redis/Memory）
-    interfaces/                // 缓存接口定义
-    services/
-      cache-factory.service.ts // 缓存工厂（选择实现、降级回退）
-      redis-cache.service.ts   // Redis 缓存实现
-      memory-cache.service.ts  // 内存缓存实现
-  shared/files/                // 文件模块（上传/下载/存储）
-    services/
-      storage.service.ts       // 本地存储适配器
-      storage-factory.service.ts // 存储工厂
-      validation.service.ts    // 文件校验服务（大小/类型/数量）
-  modules/
-    auth/                      // 认证模块（登录/令牌）
-    rbac/                      // RBAC 权限管理模块（角色/权限/动态检查）
-    users/                     // 用户模块
-```
-
-## 配置系统说明
-
-项目使用 `.env*` 文件提供环境变量，并通过 `src/config/configuration.ts` 映射为结构化配置，统一命名空间为 `app`。业务代码中仅通过 `AppConfigService` 访问配置，保证类型安全与集中管理。
-
-- 结构化映射：`src/config/configuration.ts`
-  - 应用：`NEST_APP_TITLE`, `NEST_PORT`, `NEST_BASE_URL`
-  - API：`API_PREFIX`, `API_DEFAULT_VERSION`
-  - JWT：`NEST_JWT_SECRET`, `NEST_JWT_ACCESS_TOKEN_TTL`, `NEST_JWT_REFRESH_TOKEN_TTL`
-  - 静态资源：`NEST_STATIC_ASSETS_DIR`, `NEST_STATIC_ASSETS_PREFIX`, `NEST_STATIC_ASSETS_MAXAGE`, `NEST_STATIC_UPLOAD_PATH`, `NEST_UPLOAD_MAX_SIZE`, `NEST_UPLOAD_ALLOWED_TYPES`, `NEST_UPLOAD_MAX_FILES`
-  - CORS：`NEST_CORS_ORIGINS`
-  - Swagger：`NEST_SWAGGER_TITLE`, `NEST_SWAGGER_DESCRIPTION`, `NEST_SWAGGER_VERSION`, `NEST_SWAGGER_PREFIX`, `NEST_SWAGGER_FILENAME`
-  - Redis：`NEST_REDIS_ENABLED`, `NEST_REDIS_HOST`, `NEST_REDIS_PORT`, `NEST_REDIS_PASSWORD`, `NEST_REDIS_DB`, `NEST_REDIS_RETRY_DELAY`, `NEST_REDIS_ENABLE_READY_CHECK`, `NEST_REDIS_RETRIES`, `NEST_REDIS_LAZY_CONNECT`, `NEST_REDIS_KEEP_ALIVE`, `NEST_REDIS_CONNECT_TIMEOUT`, `NEST_REDIS_COMMAND_TIMEOUT`, `NEST_REDIS_DEFAULT_TTL`, `NEST_REDIS_KEY_PREFIX`, `NEST_REDIS_MAX_SIZE`
-  - 数据库：`NEST_DATABASE_HOST`, `NEST_DATABASE_PORT`, `NEST_DATABASE_USER`, `NEST_DATABASE_PASSWORD`, `NEST_DATABASE_NAME`, `NEST_DATABASE_TABLE_PREFIX`, `NEST_DATABASE_SYNCHRONIZE`, `NEST_DATABASE_LOGGING`
-
-- 统一访问：`src/config/app-config.service.ts`
-  - 应用信息：`appTitle`, `port`, `environment`, `baseUrl`, `isDevelopment`, `isProduction`
-  - API 版本：`apiVersioning`（`prefix`, `defaultVersion`）
-  - JWT：`jwtOptions`（`secret`, `accessTokenTtl`, `refreshTokenTtl`）
-  - 静态资源：`staticAssetsOptions`（`root`, `options.prefix`, `uploads*`）
-  - CORS：`corsOptions`
-  - Swagger：`swaggerOptions`（开发/测试默认开启，生产默认关闭）
-  - 数据库：`databaseConfig`（MySQL + 命名策略）
-  - Redis：`redisConfig`（连接信息、options、高级缓存策略）
-
-## 缓存系统
-
-- 工厂服务：根据配置选择 Redis 或内存实现（降级容错）
-  - `src/shared/cache/services/cache-factory.service.ts`
-- Redis 实现：`src/shared/cache/services/redis-cache.service.ts`
-  - 连接事件监听，安全执行封装，键名前缀与 TTL 统一来源于配置
-- 内存实现：`src/shared/cache/services/memory-cache.service.ts`
-  - TTL 过期、LRU 淘汰、定期清理
-- 接口契约：`src/shared/cache/interfaces/cache.interface.ts`
-  - `CacheConfig` 作为缓存模块运行参数的投影（`type`, `enabled`, `defaultTtl`, `keyPrefix`, `maxSize`）
-
-## 文件服务
-
-- 本地存储：`src/shared/files/services/storage.service.ts`
-  - 自动创建上传目录、上传/下载/删除、URL 构建（基于 `baseUrl` 与静态前缀）
-- 校验服务：`src/shared/files/services/validation.service.ts`
-  - 大小、类型、批量数量校验，依赖 `AppConfigService.staticAssetsOptions`
-- 验证管道：`src/common/pipes/file-validation.pipe.ts`
-  - 单文件/多文件上传参数验证
-
-## 认证授权
-
-- 自定义守卫：`src/common/guards/jwt-auth.guard.ts`
-  - 手动校验 JWT，黑名单检查、用户状态检查，支持 `@Public` 与接口白名单
-- 缓存键前缀：统一通过配置 `app.redis.cache.keyPrefix` 管理黑名单等键空间
-
-## 数据库
-
-- TypeORM + MySQL，自动实体加载、重试策略
-- 表前缀：统一通过配置 `app.database.tablePrefix` 管理
-- 命名策略：`DatabaseNamingStrategy`（在 `AppModule` 注册）
-
-## API 版本与文档
-
-- 版本化：`/api/v{version}`，前缀与版本从配置读取（默认 `/api/v1`）
-- 文档地址：
-  - Swagger UI：`/api-docs`
-  - JSON 导出：`/static/api-docs.json`
-
-## 环境变量示例（开发）
-
-创建 `.env.development`（仅示例，按需调整）：
+复制项目根目录下的 `.env.example` (如果不存在请新建) 为 `.env` 或 `.env.development`，并根据实际环境修改：
 
 ```env
+# --- 应用基础 ---
 NODE_ENV=development
-NEST_APP_TITLE=NestJS Template
 NEST_PORT=3000
+NEST_APP_TITLE=NestJS Template
 NEST_BASE_URL=http://localhost:3000
 
-API_PREFIX=api
-API_DEFAULT_VERSION=1
-
-NEST_JWT_SECRET=your-secret-key
-NEST_JWT_ACCESS_TOKEN_TTL=3600
-NEST_JWT_REFRESH_TOKEN_TTL=604800
-
-NEST_STATIC_ASSETS_DIR=./static
-NEST_STATIC_ASSETS_PREFIX=/static
-NEST_STATIC_ASSETS_MAXAGE=86400
-NEST_STATIC_UPLOAD_PATH=./static/uploads
-NEST_UPLOAD_MAX_SIZE=10485760
-NEST_UPLOAD_ALLOWED_TYPES=
-NEST_UPLOAD_MAX_FILES=10
-
-NEST_CORS_ORIGINS=http://localhost:3000,http://localhost:9527
-
-NEST_SWAGGER_TITLE=API Documentation
-NEST_SWAGGER_DESCRIPTION=API文档
-NEST_SWAGGER_VERSION=1.0
-NEST_SWAGGER_PREFIX=/api-docs
-NEST_SWAGGER_FILENAME=api-docs.json
-
-NEST_REDIS_ENABLED=true
-NEST_REDIS_HOST=127.0.0.1
-NEST_REDIS_PORT=6379
-NEST_REDIS_DB=0
-NEST_REDIS_RETRY_DELAY=100
-NEST_REDIS_ENABLE_READY_CHECK=false
-NEST_REDIS_RETRIES=3
-NEST_REDIS_LAZY_CONNECT=true
-NEST_REDIS_KEEP_ALIVE=30000
-NEST_REDIS_CONNECT_TIMEOUT=10000
-NEST_REDIS_COMMAND_TIMEOUT=5000
-NEST_REDIS_DEFAULT_TTL=3600
-NEST_REDIS_KEY_PREFIX=nestjs:dev:
-NEST_REDIS_MAX_SIZE=1000
-
+# --- 数据库 (MySQL) ---
 NEST_DATABASE_HOST=localhost
 NEST_DATABASE_PORT=3306
 NEST_DATABASE_USER=root
-NEST_DATABASE_PASSWORD=
+NEST_DATABASE_PASSWORD=your_password
 NEST_DATABASE_NAME=nestjs_app
-NEST_DATABASE_TABLE_PREFIX=
 NEST_DATABASE_SYNCHRONIZE=true
 NEST_DATABASE_LOGGING=false
+
+# --- 缓存 (Redis) ---
+NEST_REDIS_ENABLED=true
+NEST_REDIS_HOST=localhost
+NEST_REDIS_PORT=6379
+NEST_REDIS_PASSWORD=
+NEST_REDIS_DB=0
+
+# --- JWT 认证 ---
+NEST_JWT_SECRET=replace_with_your_secure_secret_key
+NEST_JWT_ACCESS_TOKEN_TTL=3600      # 1小时
+NEST_JWT_REFRESH_TOKEN_TTL=604800   # 7天
+
+# --- 文件上传 ---
+NEST_UPLOAD_MAX_SIZE=10485760       # 10MB
+NEST_STATIC_ASSETS_DIR=./static
 ```
 
-## 代码质量与校验
+### 4. 启动项目
 
-- 统一格式检查：`pnpm run format:check`
-- 代码语法检查：`pnpm run lint:check`
-- 类型检查：`pnpm run type:check`
-- 一键修复：`pnpm run code:fix`
+```bash
+# 开发模式 (热更新)
+pnpm run start:dev
 
-## 部署
+# 生产模式
+pnpm run start:prod
+```
 
-- 生产构建：`pnpm run build:prod`
-- 生产启动：`pnpm run start:prod`
-- 部署流程：`pnpm run deploy`（包括构建与资源生成）
+启动成功后：
 
-## 约定与规范
+- **API 服务**: `http://localhost:3000/api/v1`
+- **Swagger 文档**: `http://localhost:3000/api-docs`
 
-- 所有业务代码中的配置访问统一使用 `AppConfigService`
-- 禁止在业务代码中直接读取原始环境变量或直接使用 `ConfigService.get('app.*')`
-- 环境变量变更需同时更新 `configuration.ts` 与 `validation.schema.ts`
+## 🧩 核心模块说明
 
----
+### 认证模块 (Auth)
 
-如需扩展新模块，请遵循现有模块的结构与配置访问方式，并优先复用工具与约定。欢迎在此模板基础上继续演化更复杂的业务场景。
+位于 `src/modules/auth`。
+
+- **Login**: `POST /auth/login` (返回 Access + Refresh Token)
+- **Register**: `POST /auth/register`
+- **Captcha**: `GET /auth/captcha` (SVG 格式)
+- **Refresh**: `POST /auth/refresh` (换取新 Token)
+
+### 权限模块 (RBAC)
+
+位于 `src/modules/rbac`。
+
+- **Decorator**: 使用 `@RequirePermissions('user:read')` 保护 Controller 方法。
+- **Guard**: `PermissionsGuard` 会自动拦截并校验用户权限。
+- **Bootstrap**: `RbacBootstrapService` 在应用启动时检查并创建默认角色。
+- **Entities**:
+  - `Role`: 支持层级结构 (Parent/Children)。
+  - `Permission`: 定义具体的操作权限点。
+
+### 用户模块 (Users)
+
+位于 `src/modules/users`。
+
+- 提供标准的用户 CRUD 操作。
+- 与 Auth 模块解耦，通过 `userId` 关联。
+- 支持批量删除、状态切换等管理功能。
+
+## 📜 常用命令
+
+| 命令                  | 说明                                     |
+| --------------------- | ---------------------------------------- |
+| `pnpm run start:dev`  | 启动开发服务器 (Watch Mode)              |
+| `pnpm run build:prod` | 构建生产环境代码                         |
+| `pnpm run code:check` | 运行代码检查 (Format + Lint + TypeCheck) |
+| `pnpm run code:fix`   | 自动修复代码格式与 Lint 问题             |
+
+## 📂 目录结构概览
+
+```
+src/
+├── common/            # 通用基础设施 (Guards, Filters, Interceptors, Pipes)
+├── config/            # 全局配置模块 (环境变量映射)
+├── database/          # 数据库配置
+├── modules/           # 业务功能模块
+│   ├── auth/          # 认证相关
+│   ├── rbac/          # 角色权限相关
+│   └── users/         # 用户管理
+└── shared/            # 共享服务模块
+    ├── cache/         # 缓存适配层
+    ├── files/         # 文件存储服务
+    └── import-export/ # 数据导入导出
+```
+
+## 🤝 贡献与规范
+
+- **Git Commit**: 请遵循 Conventional Commits 规范 (e.g., `feat: add login api`).
+- **Code Style**: 提交前请运行 `pnpm run code:check` 确保代码符合 Prettier 和 ESLint 标准.
+
+## 📄 License
+
+UNLICENSED

@@ -113,7 +113,6 @@ export class AuthController {
   @Public()
   @Post('login')
   login(@Body() body: LoginDto, @Ip() clientIp: string): Promise<TokenResponseDto> {
-    console.log('body: ', body);
     return this.authService.login(body, clientIp);
   }
 
@@ -163,6 +162,7 @@ export class AuthController {
    * @param user 当前用户信息
    * @returns 修改结果
    */
+  @RequirePermissions(PermissionAction.ROLE_UPDATE)
   @Put('change-password')
   @ApiOperation({
     summary: '修改密码',

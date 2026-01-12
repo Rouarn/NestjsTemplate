@@ -1,3 +1,4 @@
+import { BusinessExceptionFactory } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -26,7 +27,7 @@ export class RolesGuard implements CanActivate {
     const user = request.user as CurrentUser;
 
     if (!user?.userId) {
-      return false;
+      throw BusinessExceptionFactory.unauthorized('用户未登录');
     }
 
     // 优先使用请求中的用户信息（已由JwtAuthGuard填充），减少数据库查询
@@ -36,6 +37,14 @@ export class RolesGuard implements CanActivate {
       userRoles = await this.rbacService.getUserRoles(user.userId);
     }
 
-    return requiredRoles.some((role) => userRoles.includes(role));
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    if (!hasRole) {
+      throw BusinessExceptionFactory.forbidden('角色权限不足', {
+        required: requiredRoles,
+        current: userRoles,
+      });
+    }
+
+    return true;
   }
 }
