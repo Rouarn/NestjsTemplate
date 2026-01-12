@@ -1,51 +1,15 @@
-# 枚举模块（`src/common/enums`）
+# 枚举与常量 (Enums & Constants)
 
-提供系统常用枚举与配套工具函数，统一业务语义、避免魔法值、提升类型安全与可读性。通过集中导出入口 `index.ts` 在各处复用。
-
-## 快速使用
-
-- 推荐从集中入口导入：
-
-```ts
-import { Gender, Role, Status, getGenderLabel, RoleUtils, getStatusLabel } from '@/common/enums';
-```
-
-- 典型场景：
-
-```ts
-// 校验与显示
-function renderUser(u: { gender: Gender; role: Role; status: Status }) {
-  return {
-    genderText: getGenderLabel(u.gender),
-    roleText: RoleUtils.getRoleLabel(u.role),
-    statusText: getStatusLabel(u.status),
-    canManage: RoleUtils.canManageRole(Role.SYSTEM_ADMIN, u.role),
-    enabled: u.status === Status.ENABLED,
-  };
-}
-
-// 解析字符串到枚举
-const parsedGender = parseGender('female');
-const parsedRole = RoleUtils.parseRole('admin');
-const parsedStatus = parseStatus('1');
-```
-
-## 导出入口（`index.ts`）
-
-- 统一导出所有枚举及工具：
-  - `export * from './gender.enum'`
-  - `export * from './role.enum'`
-  - `export * from './status.enum'`
-- 使用路径别名 `@/common/enums` 进行一次性导入，减少分散引用。
+本项目统一使用 TS Enum 来管理状态、类型与固定选项，并配合工具函数实现类型安全与便捷调用。
 
 ## 性别枚举（`gender.enum.ts`）
 
-- 枚举：`Gender`（`MALE=0`, `FEMALE=1`, `UNKNOWN=2`）
+- 枚举：`Gender`（`UNKNOWN=0`, `MALE=1`, `FEMALE=2`）
 - 常量与类型：
-  - `GENDER_VALUES`: 所有枚举数值列表
-  - `GenderType`: 类型别名
-  - `GENDER_LABELS`: 显示标签映射（男/女/未知）
-  - `GENDER_KEYS`: 键名映射（MALE/FEMALE/UNKNOWN）
+  - `GENDER_VALUES`: `[0, 1, 2]`
+  - `GenderType`: `0 | 1 | 2`
+  - `GENDER_LABELS`: `{'0': '未知', '1': '男', '2': '女'}`
+  - `GENDER_EN_LABELS`: `{'0': 'Unknown', '1': 'Male', '2': 'Female'}`
 - 工具函数：
   - `isValidGender(value): value is Gender`
   - `getGenderLabel(gender): string`
@@ -74,7 +38,7 @@ const parsedStatus = parseStatus('1');
 
 ## 角色枚举（`role.enum.ts`）
 
-- 枚举：`Role`（字符串枚举，如 `system_admin`、`org_admin`、`user` 等）
+- 枚举：`Role`（字符串枚举，如 `admin`、`editor`、`user` 等）
 - 配置与分组：
   - `ROLE_HIERARCHY`: 权限等级（数值越大权限越高）
   - `ROLE_CONFIG`: 显示信息（`label/description/color/icon`）
@@ -116,14 +80,14 @@ const statusOptions = getStatusOptions();
 const roleOptions = RoleUtils.getRoleOptions();
 
 // 权限控制
-const canEdit = RoleUtils.hasPermission(Role.ORG_ADMIN, Role.USER);
-const manageable = RoleUtils.getManageableRoles(Role.DEPT_ADMIN); // 下级角色列表
+const canEdit = RoleUtils.hasPermission(Role.ADMIN, Role.USER);
+const manageable = RoleUtils.getManageableRoles(Role.EDITOR); // 下级角色列表
 
 // 状态切换
 const nextStatus = toggleStatus(Status.ENABLED);
 
 // 参数解析
-const role = RoleUtils.parseRole('administrator') ?? Role.USER;
+const role = RoleUtils.parseRole('admin') ?? Role.USER;
 const gender = parseGender('男');
 const status = parseStatus('ENABLED');
 ```

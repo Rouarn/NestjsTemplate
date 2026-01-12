@@ -1,6 +1,7 @@
-import { GetCurrentUser, Public, Roles } from '@/common/decorators';
+import { GetCurrentUser, Public } from '@/common/decorators';
 import { CurrentUser } from '@/common/interfaces';
-import { Role } from '@/common/enums';
+import { PermissionAction } from '@/modules/rbac/constants/permission.constant';
+import { RequirePermissions } from '@/modules/rbac/decorators/permissions.decorator';
 import {
   Body,
   ClassSerializerInterceptor,
@@ -11,12 +12,10 @@ import {
   Post,
   Put,
   Req,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { RolesGuard } from '@/common/guards';
 import { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { CaptchaResponseDto, CaptchaVerifyDto, CaptchaVerifyResponseDto } from './dto/captcha.dto';
@@ -114,6 +113,7 @@ export class AuthController {
   @Public()
   @Post('login')
   login(@Body() body: LoginDto, @Ip() clientIp: string): Promise<TokenResponseDto> {
+    console.log('body: ', body);
     return this.authService.login(body, clientIp);
   }
 
@@ -211,8 +211,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: '成功获取在线用户列表', type: [User] })
   @ApiBearerAuth()
-  @Roles(Role.SYSTEM_ADMIN)
-  @UseGuards(RolesGuard)
+  @RequirePermissions(PermissionAction.AUTH_ACTIVE_USERS)
   @Get('active-users')
   async getActiveUsers(): Promise<User[]> {
     return await this.authService.getActiveUsers();
@@ -228,8 +227,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: '操作成功' })
   @ApiBearerAuth()
-  @Roles(Role.SYSTEM_ADMIN)
-  @UseGuards(RolesGuard)
+  @RequirePermissions(PermissionAction.AUTH_KICKOUT)
   @Post('kickout/:id')
   async kickOutUser(@Param('id') id: string): Promise<{ message: string }> {
     await this.authService.kickOutUserById(id);

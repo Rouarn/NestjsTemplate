@@ -34,6 +34,7 @@ export class UsersService {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.auth', 'auth')
+      .leftJoinAndSelect('user.roles', 'roles')
       .orderBy('user.createdAt', 'DESC')
       .skip((current - 1) * size)
       .take(size);
@@ -57,7 +58,7 @@ export class UsersService {
 
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['auth'],
+      relations: ['auth', 'roles'],
     });
 
     if (!user) {

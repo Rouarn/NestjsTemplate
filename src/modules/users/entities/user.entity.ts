@@ -1,7 +1,16 @@
-import { Gender, Role } from '@/common/enums';
+import { Gender } from '@/common/enums';
 import { BaseEntity } from '@/database';
 import { Auth } from '@/modules/auth/entities/auth.entity';
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Role } from '@/modules/rbac/entities/role.entity';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 /**
  * 用户信息实体
@@ -32,15 +41,13 @@ export class User extends BaseEntity {
   @Column({ name: 'mobile', type: 'char', length: 11, nullable: true, comment: '手机号' })
   mobile: string;
 
-  @Column({
-    name: 'roles',
-    type: 'varchar',
-    length: 32,
-    default: Role.USER,
-    comment: '用户角色',
-    nullable: false,
+  @ManyToMany(() => Role, (role) => role.users)
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
-  roles: Role;
+  roles: Role[];
 
   @Column({ name: 'bio', type: 'text', nullable: true, comment: '个人简介' })
   bio: string;

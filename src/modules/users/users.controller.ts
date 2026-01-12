@@ -1,6 +1,5 @@
-import { Roles } from '@/common/decorators';
-import { Role } from '@/common/enums';
-import { RolesGuard } from '@/common/guards';
+import { PermissionAction } from '@/modules/rbac/constants/permission.constant';
+import { RequirePermissions } from '@/modules/rbac/decorators/permissions.decorator';
 import {
   Body,
   Controller,
@@ -11,7 +10,6 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -46,8 +44,7 @@ export class UsersController {
    * 支持分页、筛选和搜索
    */
   @Get()
-  @UseGuards(RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN, Role.ORG_ADMIN)
+  @RequirePermissions(PermissionAction.USER_READ)
   @ApiOperation({ summary: '获取用户列表', description: '分页获取用户列表，支持筛选' })
   @ApiQuery({ name: 'current', required: false, description: '当前页码', example: 1 })
   @ApiQuery({ name: 'size', required: false, description: '每页数量', example: 10 })
@@ -113,8 +110,7 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Patch(':id/status')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN, Role.ORG_ADMIN)
+  @RequirePermissions(PermissionAction.USER_UPDATE_STATUS)
   @ApiOperation({ summary: '切换用户状态', description: '切换用户启用/禁用状态' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
@@ -138,8 +134,7 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN, Role.ORG_ADMIN)
+  @RequirePermissions(PermissionAction.USER_DELETE)
   @ApiOperation({ summary: '删除用户', description: '删除指定用户' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
@@ -159,8 +154,7 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Post('batch-delete')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN, Role.ORG_ADMIN)
+  @RequirePermissions(PermissionAction.USER_DELETE)
   @ApiOperation({ summary: '批量删除用户', description: '批量删除多个用户' })
   @ApiResponse({
     status: HttpStatus.OK,

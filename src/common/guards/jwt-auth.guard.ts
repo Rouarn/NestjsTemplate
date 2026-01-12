@@ -1,5 +1,5 @@
 import { CACHE_PREFIXES, CACHE_TOKENS, JWT_CONSTANTS } from '@/common/constants';
-import { Role, Status } from '@/common/enums';
+import { Status } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators';
+import { SystemRoles } from '../../modules/rbac/constants/system-roles.constant';
 
 /**
  * JwtAuthGuard（JWT 认证守卫）
@@ -106,7 +107,7 @@ export class JwtAuthGuard implements CanActivate {
         authId: authInfo.id,
         userId: authInfo.user?.id || authInfo.id,
         username: authInfo.username,
-        roles: [authInfo.user?.roles || Role.USER],
+        roles: authInfo.user?.roles?.map((r) => r.name) || [SystemRoles.USER],
         lastLoginAt: authInfo.lastLoginAt,
       };
 

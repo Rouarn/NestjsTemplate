@@ -1,4 +1,5 @@
-import { Gender, Role } from '@/common/enums';
+import { Gender } from '@/common/enums';
+import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -10,7 +11,6 @@ import {
   Length,
   Matches,
 } from 'class-validator';
-
 /**
  * 更新用户DTO
  *
@@ -119,9 +119,9 @@ export class UpdateUserDto {
 
   @ApiPropertyOptional({
     description: '用户角色',
-    example: Role.USER,
+    example: SystemRoles.USER,
   })
   @IsOptional()
-  @IsEnum(Role, { message: '角色值无效' })
-  roles?: Role;
+  @IsEnum(SystemRoles, { message: '角色值无效' })
+  roles?: SystemRoles;
 }

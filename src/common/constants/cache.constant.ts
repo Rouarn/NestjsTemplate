@@ -28,6 +28,8 @@ export const CACHE_PREFIXES = {
   REFRESH_TOKENS: 'auth:refresh_tokens:',
   /** 用户资料缓存键前缀 */
   USER_PROFILE: 'users:profile:',
+  /** RBAC用户权限缓存键前缀 */
+  RBAC_USER_PERMISSIONS: 'rbac:user_permissions:',
 } as const;
 
 /**

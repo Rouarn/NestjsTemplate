@@ -94,6 +94,7 @@ src/
       validation.service.ts    // 文件校验服务（大小/类型/数量）
   modules/
     auth/                      // 认证模块（登录/令牌）
+    rbac/                      // RBAC 权限管理模块（角色/权限/动态检查）
     users/                     // 用户模块
 ```
 

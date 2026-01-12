@@ -1,17 +1,19 @@
 import { CACHE_PREFIXES, CACHE_TOKENS, JWT_CONSTANTS } from '@/common/constants';
-import { isEnabled, Role } from '@/common/enums';
+import { isEnabled } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
+import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 import { ICacheService } from '@/shared/cache';
 import { getCurrentTimestamp, uuid4 } from '@/utils';
-import { Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as svgCaptcha from 'svg-captcha';
 import { DataSource, In, Repository } from 'typeorm';
+import { RbacService } from '../rbac/services/rbac.service';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import type {
@@ -38,6 +40,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly appConfig: AppConfigService,
+    @Inject(forwardRef(() => RbacService))
+    private readonly rbacService: RbacService,
     @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
     private readonly cacheService: ICacheService,
   ) {}
@@ -144,6 +148,8 @@ export class AuthService {
       }
 
       // 创建关联的用户记录
+      const defaultRole = await this.rbacService.getDefaultRole();
+
       const user = manager.create(User, {
         auth: savedAuth,
         nickname: registerDto.nickname ?? savedAuth.username,
@@ -151,7 +157,7 @@ export class AuthService {
         avatar: registerDto.avatar,
         gender: registerDto.gender,
         mobile: registerDto.mobile,
-        roles: Role.USER, // 默认为普通用户
+        roles: [defaultRole],
       });
 
       await manager.save(user);
@@ -176,6 +182,7 @@ export class AuthService {
     const auth = await this.authRepository
       .createQueryBuilder('auth')
       .leftJoinAndSelect('auth.user', 'user')
+      .leftJoinAndSelect('user.roles', 'roles')
       .addSelect(['auth.password', 'auth.salt'])
       .where('auth.username = :username', { username: loginDto.username })
       .getOne();
@@ -254,7 +261,7 @@ export class AuthService {
       username: auth.username,
       authId: auth.id,
       userId: auth.user.id,
-      roles: auth.user.roles || Role.USER,
+      roles: auth.user.roles || SystemRoles.USER,
       jti: uuid4(),
     };
 
@@ -313,7 +320,7 @@ export class AuthService {
     // 获取认证信息
     const auth = await this.authRepository.findOne({
       where: { id: authId },
-      relations: ['user'],
+      relations: ['user', 'user.roles'],
     });
 
     if (!auth) {
@@ -340,7 +347,7 @@ export class AuthService {
       authId: auth.id,
       username: auth.username,
       userId: auth.user?.id || auth.id,
-      roles: auth.user?.roles || Role.USER,
+      roles: auth.user?.roles || SystemRoles.USER,
       jti: uuid4(),
     };
 
@@ -541,7 +548,7 @@ export class AuthService {
   async getAuthById(authId: string): Promise<Auth> {
     const auth = await this.authRepository.findOne({
       where: { id: authId },
-      relations: ['user'],
+      relations: ['user', 'user.roles'],
     });
     if (!auth) {
       throw BusinessExceptionFactory.notFound('认证记录', { reason: `认证ID ${authId} 不存在` });

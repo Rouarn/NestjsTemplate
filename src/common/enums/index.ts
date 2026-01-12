@@ -5,5 +5,4 @@
 
 // 导出枚举类型
 export * from './gender.enum';
-export * from './role.enum';
 export * from './status.enum';
