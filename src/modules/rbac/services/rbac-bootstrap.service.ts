@@ -96,7 +96,7 @@ export class RbacBootstrapService implements OnModuleInit {
 
         // 2. 创建 Auth
         const salt = bcrypt.genSaltSync(this.appConfig.bcryptSaltRounds);
-        const hashedPassword = bcrypt.hashSync(u.password, salt);
+        const hashedPassword = bcrypt.hashSync(String(u.password), salt);
 
         const auth = this.authRepository.create({
           username: u.username,

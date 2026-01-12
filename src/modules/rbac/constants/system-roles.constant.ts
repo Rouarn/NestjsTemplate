@@ -1,3 +1,4 @@
+import type { RegisterDto } from '../../auth/dto/register.dto';
 import type { Role } from '../entities/role.entity';
 
 export enum SystemRoles {
@@ -40,12 +41,8 @@ export const DEFAULT_SYSTEM_ROLES: Partial<Role>[] = [
   },
 ];
 
-export interface DefaultSystemUser {
-  username: string;
-  password: string;
-  email: string;
-  nickname: string;
-  roles: string[];
+export interface DefaultSystemUser extends Partial<RegisterDto> {
+  roles: SystemRoles[];
 }
 
 export const DEFAULT_SYSTEM_USERS: DefaultSystemUser[] = [

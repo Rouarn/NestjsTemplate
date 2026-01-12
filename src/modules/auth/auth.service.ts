@@ -261,7 +261,10 @@ export class AuthService {
       username: auth.username,
       authId: auth.id,
       userId: auth.user.id,
-      roles: auth.user.roles || SystemRoles.USER,
+      roles:
+        auth.user.roles && auth.user.roles.length > 0
+          ? auth.user.roles.map((r) => r.name)
+          : [SystemRoles.USER],
       jti: uuid4(),
     };
 
@@ -347,7 +350,10 @@ export class AuthService {
       authId: auth.id,
       username: auth.username,
       userId: auth.user?.id || auth.id,
-      roles: auth.user?.roles || SystemRoles.USER,
+      roles:
+        auth.user?.roles && auth.user.roles.length > 0
+          ? auth.user.roles.map((r) => r.name)
+          : [SystemRoles.USER],
       jti: uuid4(),
     };
 

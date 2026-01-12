@@ -1,5 +1,4 @@
 import { Gender } from '@/common/enums';
-import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -116,12 +115,4 @@ export class UpdateUserDto {
   @Length(0, 50, { message: '职业名称不能超过50个字符' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   profession?: string;
-
-  @ApiPropertyOptional({
-    description: '用户角色',
-    example: SystemRoles.USER,
-  })
-  @IsOptional()
-  @IsEnum(SystemRoles, { message: '角色值无效' })
-  roles?: SystemRoles;
 }

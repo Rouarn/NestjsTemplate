@@ -3,7 +3,7 @@ import { Column, Entity, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Role } from './role.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
-@Entity('permissions')
+@Entity('permissions', { comment: '权限信息表' })
 export class Permission extends BaseEntity {
   @ApiProperty({ description: '权限ID' })
   @PrimaryGeneratedColumn('uuid')

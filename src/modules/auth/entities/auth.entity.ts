@@ -10,7 +10,7 @@ import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
  * 专门负责用户认证相关的信息，包括用户名、密码、状态等认证必需的字段。
  * 与用户信息实体通过一对一关系关联，实现认证与用户资料的分离。
  */
-@Entity('auth')
+@Entity('auth', { comment: '认证信息表' })
 export class Auth extends BaseEntity {
   @PrimaryGeneratedColumn('uuid', { comment: '认证ID' })
   id: string;

@@ -18,7 +18,7 @@ import {
  * 专门负责存储用户的个人资料信息，与认证信息分离，实现职责单一。
  * 通过一对一关系关联认证实体，形成完整的用户体系。
  */
-@Entity('users')
+@Entity('users', { comment: '用户信息表' })
 export class User extends BaseEntity {
   @PrimaryGeneratedColumn('uuid', { comment: '用户ID' })
   id: string;

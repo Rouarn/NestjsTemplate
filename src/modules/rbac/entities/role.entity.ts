@@ -13,7 +13,7 @@ import {
 import { Permission } from './permission.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
-@Entity('roles')
+@Entity('roles', { comment: '角色信息表' })
 @Tree('closure-table')
 export class Role extends BaseEntity {
   @ApiProperty({ description: '角色ID' })
@@ -58,6 +58,7 @@ export class Role extends BaseEntity {
   })
   permissions: Permission[];
 
+  @ApiProperty({ description: '用户列表', type: () => [User], required: false })
   @ManyToMany(() => User, (user) => user.roles)
   users: User[];
 }

@@ -36,9 +36,10 @@ export class JwtPayloadDto {
 
   @ApiProperty({
     description: '用户角色',
-    example: 'ADMIN',
+    example: ['admin'],
+    type: [String],
   })
-  roles: string;
+  roles: string[];
 
   @ApiProperty({
     description: '签发时间（Unix时间戳）',

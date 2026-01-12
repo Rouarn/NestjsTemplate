@@ -3,7 +3,7 @@ import { BaseEntity } from '@/database';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { FileType } from '../enums';
 
-@Entity('files')
+@Entity('files', { comment: '文件存储表' })
 export class File extends BaseEntity {
   @PrimaryGeneratedColumn('uuid', { comment: '文件ID' })
   id: string;
