@@ -14,48 +14,51 @@ export class User extends BaseEntity {
   @PrimaryGeneratedColumn('uuid', { comment: '用户ID' })
   id: string;
 
-  @Column({ length: 100, nullable: true, default: '用户', comment: '昵称' })
+  @Column({ name: 'nickname', length: 64, nullable: true, default: '用户', comment: '昵称' })
   nickname: string;
 
-  @Column({ nullable: true, comment: '头像URL' })
+  @Column({ name: 'avatar', length: 255, nullable: true, comment: '头像URL' })
   avatar: string;
 
-  @Column('simple-enum', {
-    enum: Gender,
+  @Column({
+    name: 'gender',
+    type: 'tinyint',
     default: Gender.UNKNOWN,
     nullable: true,
-    comment: '性别',
+    comment: '性别: 0-男, 1-女, 2-未知',
   })
   gender: Gender;
 
-  @Column({ length: 11, nullable: true, comment: '手机号' })
+  @Column({ name: 'mobile', type: 'char', length: 11, nullable: true, comment: '手机号' })
   mobile: string;
 
-  @Column('simple-enum', {
-    enum: Role,
+  @Column({
+    name: 'roles',
+    type: 'varchar',
+    length: 32,
     default: Role.USER,
     comment: '用户角色',
     nullable: false,
   })
   roles: Role;
 
-  @Column({ type: 'text', nullable: true, comment: '个人简介' })
+  @Column({ name: 'bio', type: 'text', nullable: true, comment: '个人简介' })
   bio: string;
 
-  @Column({ nullable: true, comment: '邮箱地址' })
+  @Column({ name: 'email', length: 128, nullable: true, comment: '邮箱地址' })
   email: string;
 
-  @Column({ type: 'date', nullable: true, comment: '生日' })
+  @Column({ name: 'birthday', type: 'date', nullable: true, comment: '生日' })
   birthday: Date;
 
-  @Column({ length: 100, nullable: true, comment: '所在城市' })
+  @Column({ name: 'city', length: 100, nullable: true, comment: '所在城市' })
   city: string;
 
-  @Column({ length: 100, nullable: true, comment: '职业' })
+  @Column({ name: 'profession', length: 100, nullable: true, comment: '职业' })
   profession: string;
 
   // 一对一关联认证信息
   @OneToOne(() => Auth, (auth) => auth.user)
-  @JoinColumn()
+  @JoinColumn({ name: 'auth_id' })
   auth: Auth;
 }

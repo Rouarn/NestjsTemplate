@@ -21,11 +21,12 @@ export abstract class BaseEntity {
    * 如果启用自动时间戳，将在插入时自动赋值。
    */
   @Column({
+    name: 'created_at',
     comment: '创建时间',
-    type: 'timestamp',
+    type: 'datetime',
     precision: 6,
-    nullable: true,
-    default: null,
+    nullable: false,
+    default: () => 'CURRENT_TIMESTAMP(6)',
   })
   createdAt: Date;
 
@@ -37,11 +38,28 @@ export abstract class BaseEntity {
    * 如果启用自动时间戳，将在更新时自动赋值。
    */
   @Column({
+    name: 'updated_at',
     comment: '更新时间',
-    type: 'timestamp',
+    type: 'datetime',
     precision: 6,
-    nullable: true,
-    default: null,
+    nullable: false,
+    default: () => 'CURRENT_TIMESTAMP(6)',
+    onUpdate: 'CURRENT_TIMESTAMP(6)',
   })
   updatedAt: Date;
+
+  /**
+   * 软删除标识
+   *
+   * @description
+   * 0-未删除, 1-已删除
+   */
+  @Column({
+    name: 'deleted_at',
+    comment: '软删除时间',
+    type: 'datetime',
+    precision: 6,
+    nullable: true,
+  })
+  deletedAt: Date | null;
 }
