@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 /**
@@ -26,6 +27,7 @@ export class ChangePasswordDto {
   @IsString({ message: '旧密码必须是字符串' })
   @IsNotEmpty({ message: '旧密码不能为空' })
   @Length(6, 50, { message: '旧密码长度必须在6-50个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   oldPassword: string;
 
   @ApiProperty({
@@ -37,6 +39,7 @@ export class ChangePasswordDto {
   @IsString({ message: '新密码必须是字符串' })
   @IsNotEmpty({ message: '新密码不能为空' })
   @Length(6, 50, { message: '新密码长度必须在6-50个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   newPassword: string;
 
   @ApiProperty({
@@ -48,5 +51,6 @@ export class ChangePasswordDto {
   @IsString({ message: '确认密码必须是字符串' })
   @IsNotEmpty({ message: '确认密码不能为空' })
   @Length(6, 50, { message: '确认密码长度必须在6-50个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   confirmPassword: string;
 }

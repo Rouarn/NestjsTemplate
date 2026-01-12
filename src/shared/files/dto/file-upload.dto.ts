@@ -1,5 +1,6 @@
 import { Status } from '@/common/enums';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class FileUploadDto {
@@ -16,5 +17,6 @@ export class FileUploadDto {
   @ApiPropertyOptional({ description: '上传协议', default: 'HTTP' })
   @IsOptional()
   @IsString()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   protocol?: string;
 }

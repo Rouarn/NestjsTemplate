@@ -1,6 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
 import { JWT_CONSTANTS } from '@/common/constants';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 /**
  * JWT载荷DTO
@@ -70,6 +71,7 @@ export class RefreshTokenDto {
   })
   @IsString({ message: '刷新令牌必须是字符串' })
   @IsNotEmpty({ message: '刷新令牌不能为空' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   refreshToken: string;
 }
 

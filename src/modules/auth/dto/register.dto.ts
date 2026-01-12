@@ -1,5 +1,6 @@
 import { Gender } from '@/common/enums';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -52,6 +53,7 @@ export class RegisterDto {
   @IsNotEmpty({ message: '用户名不能为空' })
   @Length(3, 20, { message: '用户名长度必须在3-20个字符之间' })
   @Matches(/^[a-zA-Z0-9_]+$/, { message: '用户名只能包含字母、数字和下划线' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   username: string;
 
   @ApiProperty({
@@ -63,6 +65,7 @@ export class RegisterDto {
   @IsString({ message: '密码必须是字符串' })
   @IsNotEmpty({ message: '密码不能为空' })
   @Length(6, 50, { message: '密码长度必须在6-50个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   password: string;
 
   @ApiProperty({
@@ -82,6 +85,7 @@ export class RegisterDto {
   @IsString({ message: '验证码必须是字符串' })
   @IsNotEmpty({ message: '验证码不能为空' })
   @Length(4, 6, { message: '验证码长度必须在4-6个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   captchaCode: string;
 
   @ApiPropertyOptional({
@@ -93,6 +97,7 @@ export class RegisterDto {
   @IsOptional()
   @IsString({ message: '昵称必须是字符串' })
   @Length(2, 20, { message: '昵称长度必须在2-20个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   nickname?: string;
 
   @ApiPropertyOptional({
@@ -101,6 +106,7 @@ export class RegisterDto {
   })
   @IsOptional()
   @IsString({ message: '头像必须是字符串' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   avatar?: string;
 
   @ApiPropertyOptional({
@@ -121,6 +127,7 @@ export class RegisterDto {
   @IsOptional()
   @IsString({ message: '手机号必须是字符串' })
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   mobile?: string;
 
   @ApiPropertyOptional({
@@ -130,6 +137,7 @@ export class RegisterDto {
   })
   @IsOptional()
   @IsEmail({}, { message: '邮箱格式不正确' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   email?: string;
 }
 

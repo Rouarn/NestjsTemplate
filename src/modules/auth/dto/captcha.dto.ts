@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 /**
@@ -30,6 +31,7 @@ export class CaptchaVerifyDto {
   })
   @IsString({ message: '验证码令牌必须是字符串' })
   @IsNotEmpty({ message: '验证码令牌不能为空' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   token: string;
 
   @ApiProperty({
@@ -41,6 +43,7 @@ export class CaptchaVerifyDto {
   @IsString({ message: '验证码必须是字符串' })
   @IsNotEmpty({ message: '验证码不能为空' })
   @Length(4, 6, { message: '验证码长度必须在4-6个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   code: string;
 }
 

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { FileType } from '../enums';
 
@@ -32,6 +32,7 @@ export class FileQueryDto {
   @ApiPropertyOptional({ description: '文件名搜索' })
   @IsOptional()
   @IsString()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   search?: string;
 
   @ApiPropertyOptional({ description: '是否只显示公开文件' })

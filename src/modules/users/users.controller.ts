@@ -21,12 +21,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  BatchDeleteUserDto,
-  QueryUserDto,
-  ToggleUserStatusDto,
-  UpdateUserDto,
-} from './dto/update-user.dto';
+import { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
+import { ToggleUserStatusDto } from './dto/toggle-user-status.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UserListResponseDto } from './dto/users.responses.dto';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';

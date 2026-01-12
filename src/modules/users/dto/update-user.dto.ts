@@ -1,15 +1,12 @@
-import { Gender, Role, Status } from '@/common/enums';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Gender, Role } from '@/common/enums';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
-  ArrayNotEmpty,
-  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
   IsOptional,
   IsString,
-  IsUUID,
   Length,
   Matches,
 } from 'class-validator';
@@ -35,6 +32,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(2, 20, { message: '昵称长度必须在2-20个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   nickname?: string;
 
   @ApiPropertyOptional({
@@ -43,6 +41,7 @@ export class UpdateUserDto {
   })
   @IsOptional()
   @IsString()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   avatar?: string;
 
   @ApiPropertyOptional({
@@ -62,6 +61,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   mobile?: string;
 
   @ApiPropertyOptional({
@@ -71,6 +71,7 @@ export class UpdateUserDto {
   })
   @IsOptional()
   @IsEmail({}, { message: '邮箱格式不正确' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   email?: string;
 
   @ApiPropertyOptional({
@@ -81,6 +82,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(0, 200, { message: '个人简介不能超过200个字符' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   bio?: string;
 
   @ApiPropertyOptional({
@@ -101,16 +103,18 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(0, 50, { message: '城市名称不能超过50个字符' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   city?: string;
 
   @ApiPropertyOptional({
     description: '职业',
-    example: '产品经理',
+    example: '软件工程师',
     maxLength: 50,
   })
   @IsOptional()
   @IsString()
-  @Length(0, 50, { message: '职业描述不能超过50个字符' })
+  @Length(0, 50, { message: '职业名称不能超过50个字符' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   profession?: string;
 
   @ApiPropertyOptional({
@@ -120,115 +124,4 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEnum(Role, { message: '角色值无效' })
   roles?: Role;
-}
-
-/**
- * 批量删除用户DTO
- *
- * 用于批量删除多个用户的操作。
- *
- * 字段说明：
- * - ids: 要删除的用户ID数组
- *
- * 验证规则：
- * - ids: 必填数组，不能为空
- * - 数组中的每个元素必须是有效的UUID
- */
-export class BatchDeleteUserDto {
-  @ApiProperty({
-    description: '要删除的用户ID数组',
-    example: ['uuid1', 'uuid2', 'uuid3'],
-    type: [String],
-  })
-  @IsArray({ message: 'ids必须是数组' })
-  @ArrayNotEmpty({ message: 'ids数组不能为空' })
-  @IsUUID('4', { each: true, message: '每个ID必须是有效的UUID' })
-  ids: string[];
-}
-
-/**
- * 切换用户状态DTO
- *
- * 用于启用或禁用用户账户。
- * 注意：这个操作实际上是修改关联的认证实体的状态。
- *
- * 字段说明：
- * - status: 目标状态（可选，如果不提供则自动切换）
- *
- * 验证规则：
- * - status: 可选的状态枚举值
- */
-export class ToggleUserStatusDto {
-  @ApiPropertyOptional({
-    description: '目标状态（可选，不提供则自动切换）',
-    enum: Status,
-    example: Status.ENABLED,
-  })
-  @IsOptional()
-  @IsEnum(Status, { message: '状态值无效' })
-  status?: Status;
-}
-
-/**
- * 用户查询DTO
- *
- * 用于用户列表查询和筛选。
- *
- * 字段说明：
- * - current: 当前页码
- * - size: 每页数量
- * - nickname: 昵称模糊搜索
- * - email: 邮箱模糊搜索
- * - roles: 角色筛选
- * - status: 状态筛选
- */
-export class QueryUserDto {
-  @ApiPropertyOptional({
-    description: '当前页码',
-    example: 1,
-    default: 1,
-  })
-  @IsOptional()
-  current?: number = 1;
-
-  @ApiPropertyOptional({
-    description: '每页数量',
-    example: 10,
-    default: 10,
-  })
-  @IsOptional()
-  size?: number = 10;
-
-  @ApiPropertyOptional({
-    description: '昵称模糊搜索',
-    example: '张',
-  })
-  @IsOptional()
-  @IsString()
-  nickname?: string;
-
-  @ApiPropertyOptional({
-    description: '邮箱模糊搜索',
-    example: 'user@',
-  })
-  @IsOptional()
-  @IsString()
-  email?: string;
-
-  @ApiPropertyOptional({
-    description: '角色筛选',
-    example: 'ADMIN',
-  })
-  @IsOptional()
-  @IsString()
-  roles?: string;
-
-  @ApiPropertyOptional({
-    description: '状态筛选',
-    enum: Status,
-    example: Status.ENABLED,
-  })
-  @IsOptional()
-  @IsEnum(Status, { message: '状态值无效' })
-  status?: Status;
 }

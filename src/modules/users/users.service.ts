@@ -5,7 +5,8 @@ import { ICacheService } from '@/shared/cache/interfaces';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import type { BatchDeleteUserDto, UpdateUserDto } from './dto/update-user.dto';
+import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
+import type { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 
 /**
