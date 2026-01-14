@@ -4,6 +4,7 @@ import { CacheModule } from '@/shared/cache';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
+import { Auth } from '@/modules/auth/entities/auth.entity';
 
 /**
  * 用户模块（UsersModule）
@@ -37,8 +38,8 @@ import { User } from './entities/user.entity';
  */
 @Module({
   imports: [
-    // 注册User实体到TypeORM
-    TypeOrmModule.forFeature([User]),
+    // 注册User实体和Auth实体到TypeORM
+    TypeOrmModule.forFeature([User, Auth]),
     // 导入缓存模块，支持用户信息缓存
     CacheModule,
   ],

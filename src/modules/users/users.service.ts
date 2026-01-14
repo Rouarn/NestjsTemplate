@@ -1,11 +1,13 @@
 import { CACHE_PREFIXES, CACHE_TOKENS, CACHE_TTL } from '@/common/constants';
 import { Status, toggleStatus } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
+import { Auth } from '@/modules/auth/entities/auth.entity';
 import { ICacheService } from '@/shared/cache/interfaces';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 
@@ -20,6 +22,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Auth)
+    private readonly authRepository: Repository<Auth>,
     @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
     private readonly cacheService: ICacheService,
   ) {}
@@ -30,14 +34,32 @@ export class UsersService {
    * @param size 每页数量
    * @returns 用户列表和总数
    */
-  async findAll(current: number = 1, size: number = 10): Promise<{ list: User[]; total: number }> {
+  async findAll(queryDto: QueryUserDto): Promise<{ list: User[]; total: number }> {
+    const { current, size, nickname, email, roles, status } = queryDto;
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.auth', 'auth')
-      .leftJoinAndSelect('user.roles', 'roles')
-      .orderBy('user.createdAt', 'DESC')
-      .skip((current - 1) * size)
-      .take(size);
+      .leftJoinAndSelect('user.roles', 'roles');
+
+    if (nickname) {
+      queryBuilder.where('user.nickname LIKE :nickname', { nickname: `%${nickname}%` });
+    }
+    if (email) {
+      queryBuilder.where('user.email LIKE :email', { email: `%${email}%` });
+    }
+    if (roles) {
+      queryBuilder.where('roles.name IN (:...roles)', { roles });
+    }
+    if (status !== undefined) {
+      queryBuilder.where('user.status = :status', { status });
+    }
+
+    if (current && size) {
+      queryBuilder
+        .orderBy('user.createdAt', 'DESC')
+        .skip((current - 1) * size)
+        .take(size);
+    }
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
@@ -114,7 +136,7 @@ export class UsersService {
 
     // 更新认证状态
     user.auth.status = status ?? toggleStatus(user.auth.status);
-    await this.userRepository.save(user);
+    await this.authRepository.update(user.auth.id, { status: user.auth.status });
 
     // 清除缓存
     await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);

@@ -1,15 +1,15 @@
-import type { RegisterDto } from '../../auth/dto/register.dto';
+import type { RegisterDto } from '@/modules/auth/dto/register.dto';
 import type { Role } from '../entities/role.entity';
 
 export enum SystemRoles {
   /** 超级管理员 (站长) - 拥有所有权限 */
-  ADMIN = 'admin',
+  ADMIN = 'R_SUPER_ADMIN',
   /** 内容编辑/协管员 - 负责内容管理 */
-  EDITOR = 'editor',
+  EDITOR = 'R_EDITOR',
   /** 普通用户 - 注册会员 */
-  USER = 'user',
+  USER = 'R_USER',
   /** 访客 - 未登录用户 */
-  GUEST = 'guest',
+  GUEST = 'R_GUEST',
 }
 
 export const SYSTEM_ROLES_LIST = Object.values(SystemRoles);
@@ -47,22 +47,22 @@ export interface DefaultSystemUser extends Partial<RegisterDto> {
 
 export const DEFAULT_SYSTEM_USERS: DefaultSystemUser[] = [
   {
-    username: 'admin',
-    password: 'password123',
+    username: SystemRoles.ADMIN,
+    password: '123456',
     email: 'admin@example.com',
     nickname: '超级管理员',
     roles: [SystemRoles.ADMIN],
   },
   {
-    username: 'editor',
-    password: 'password123',
+    username: SystemRoles.EDITOR,
+    password: '123456',
     email: 'editor@example.com',
     nickname: '内容管理员',
     roles: [SystemRoles.EDITOR],
   },
   {
-    username: 'user',
-    password: 'password123',
+    username: SystemRoles.USER,
+    password: '123456',
     email: 'user@example.com',
     nickname: '普通用户',
     roles: [SystemRoles.USER],

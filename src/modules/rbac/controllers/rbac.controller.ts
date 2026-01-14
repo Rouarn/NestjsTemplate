@@ -1,6 +1,7 @@
 import { JwtAuthGuard } from '@/common/guards';
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { User } from '../../users/entities/user.entity';
 import { RequirePermissions } from '../decorators/permissions.decorator';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
 import { AssignRolesDto } from '../dto/assign-roles.dto';
@@ -11,7 +12,6 @@ import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
 import { PermissionsGuard } from '../guards/permissions.guard';
 import { RbacService } from '../services/rbac.service';
-import { User } from '../../users/entities/user.entity';
 
 @ApiTags('RBAC 权限管理')
 @ApiBearerAuth()
@@ -55,7 +55,7 @@ export class RbacController {
   @ApiOperation({ summary: '为角色分配权限', description: '设置指定角色拥有的权限列表' })
   @ApiResponse({ status: 201, description: '分配成功', type: Role })
   @Post('roles/:id/permissions')
-  @RequirePermissions('role:assign_perm')
+  @RequirePermissions('role:assign-permissions')
   assignPermissions(@Param('id') id: string, @Body() dto: AssignPermissionsDto): Promise<Role> {
     return this.rbacService.assignPermissions(id, dto.permissionIds);
   }
