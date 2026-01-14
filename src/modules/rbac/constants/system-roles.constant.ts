@@ -8,8 +8,6 @@ export enum SystemRoles {
   EDITOR = 'R_EDITOR',
   /** 普通用户 - 注册会员 */
   USER = 'R_USER',
-  /** 访客 - 未登录用户 */
-  GUEST = 'R_GUEST',
 }
 
 export const SYSTEM_ROLES_LIST = Object.values(SystemRoles);
@@ -31,12 +29,6 @@ export const DEFAULT_SYSTEM_ROLES: Partial<Role>[] = [
     name: SystemRoles.USER,
     alias: '普通用户',
     description: '系统默认的标准用户角色',
-    isSystem: true,
-  },
-  {
-    name: SystemRoles.GUEST,
-    alias: '访客',
-    description: '受限访问的访客角色',
     isSystem: true,
   },
 ];

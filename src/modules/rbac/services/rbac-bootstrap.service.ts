@@ -31,12 +31,12 @@ export class RbacBootstrapService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    this.logger.log('Checking and initializing RBAC system data...');
+    this.logger.log('检查和初始化RBAC系统数据...');
     await this.initPermissions();
     await this.initRoles();
     await this.initUsers();
     await this.assignPermissionsToRoles();
-    this.logger.log('RBAC system data initialization completed.');
+    this.logger.log('RBAC系统数据初始化完成。');
   }
 
   /**
@@ -46,7 +46,7 @@ export class RbacBootstrapService implements OnModuleInit {
     for (const p of DEFAULT_PERMISSIONS) {
       const exists = await this.permissionRepository.findOne({ where: { name: p.name } });
       if (!exists) {
-        this.logger.log(`Creating permission: ${p.name}`);
+        this.logger.log(`创建权限: ${p.name}`);
         const permission = this.permissionRepository.create({
           name: p.name,
           description: p.description,
@@ -66,7 +66,7 @@ export class RbacBootstrapService implements OnModuleInit {
     for (const r of defaultRoles) {
       const exists = await this.roleRepository.findOne({ where: { name: r.name } });
       if (!exists) {
-        this.logger.log(`Creating system role: ${r.name}`);
+        this.logger.log(`创建系统角色: ${r.name}`);
         const role = this.roleRepository.create(r);
         await this.roleRepository.save(role);
       }
@@ -81,7 +81,7 @@ export class RbacBootstrapService implements OnModuleInit {
       // 检查 Auth 是否存在 (用户名唯一)
       const exists = await this.authRepository.findOne({ where: { username: u.username } });
       if (!exists) {
-        this.logger.log(`Creating default user: ${u.username}`);
+        this.logger.log(`创建默认用户: ${u.username}`);
 
         // 1. 获取角色实体
         const roles = await this.roleRepository.findBy({
@@ -90,7 +90,7 @@ export class RbacBootstrapService implements OnModuleInit {
 
         if (roles.length !== u.roles.length) {
           this.logger.warn(
-            `Some roles for user ${u.username} not found. Expected: ${u.roles.join(', ')}, Found: ${roles.map((r) => r.name).join(', ')}`,
+            `用户 ${u.username} 角色中有些角色不存在。预期: ${u.roles.join(', ')}, 找到: ${roles.map((r) => r.name).join(', ')}`,
           );
         }
 
@@ -137,7 +137,7 @@ export class RbacBootstrapService implements OnModuleInit {
       const missingAny = allPermissions.some((p) => !currentPermissionIds.has(p.id));
 
       if (missingAny) {
-        this.logger.log(`Updating permissions for ${SystemRoles.ADMIN}: Ensuring full access`);
+        this.logger.log(`更新 ${SystemRoles.ADMIN} 角色权限: 确保拥有所有权限`);
         // 系统管理员应拥有所有权限
         systemAdmin.permissions = allPermissions;
         await this.roleRepository.save(systemAdmin);
@@ -158,8 +158,15 @@ export class RbacBootstrapService implements OnModuleInit {
       // 在真实场景中，可以分配 `PermissionAction.USER_READ` 等
       const targetPermissions = await this.permissionRepository.find({
         where: [
-          // 示例：仅分配用户读取权限
-          { name: PermissionAction.USER_READ },
+          // 示例：仅分配用户相关权限
+          {
+            name: In([
+              PermissionAction.USER_READ,
+              PermissionAction.USER_CREATE,
+              PermissionAction.USER_UPDATE,
+              PermissionAction.USER_DELETE,
+            ]),
+          },
         ],
       });
 
@@ -168,7 +175,7 @@ export class RbacBootstrapService implements OnModuleInit {
 
       if (missingPermissions.length > 0) {
         this.logger.log(
-          `Updating permissions for ${SystemRoles.EDITOR}: Adding ${missingPermissions.length} missing permissions`,
+          `更新 ${SystemRoles.EDITOR} 角色权限: 添加 ${missingPermissions.length} 缺失权限`,
         );
         editor.permissions = [...(editor.permissions || []), ...missingPermissions];
         await this.roleRepository.save(editor);
