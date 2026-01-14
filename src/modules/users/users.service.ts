@@ -42,24 +42,31 @@ export class UsersService {
       .leftJoinAndSelect('user.roles', 'roles');
 
     if (nickname) {
-      queryBuilder.where('user.nickname LIKE :nickname', { nickname: `%${nickname}%` });
+      queryBuilder.andWhere('user.nickname LIKE :nickname', { nickname: `%${nickname}%` });
     }
     if (email) {
-      queryBuilder.where('user.email LIKE :email', { email: `%${email}%` });
+      queryBuilder.andWhere('user.email LIKE :email', { email: `%${email}%` });
     }
     if (roles) {
-      queryBuilder.where('roles.name IN (:...roles)', { roles });
+      const roleList = roles
+        .split(',')
+        .map((r) => r.trim())
+        .filter(Boolean);
+      if (roleList.length > 0) {
+        queryBuilder.andWhere('roles.name IN (:...roles)', { roles: roleList });
+      }
     }
     if (status !== undefined) {
-      queryBuilder.where('user.status = :status', { status });
+      queryBuilder.andWhere('auth.status = :status', { status });
     }
 
-    if (current && size) {
-      queryBuilder
-        .orderBy('user.createdAt', 'DESC')
-        .skip((current - 1) * size)
-        .take(size);
-    }
+    const page = current ?? 1;
+    const pageSize = size ?? 10;
+
+    queryBuilder
+      .orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
