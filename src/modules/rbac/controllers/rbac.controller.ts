@@ -13,6 +13,15 @@ import { Role } from '../entities/role.entity';
 import { PermissionsGuard } from '../guards/permissions.guard';
 import { RbacService } from '../services/rbac.service';
 
+/**
+ * RBAC 控制器
+ *
+ * 提供角色和权限的管理接口，包括：
+ * - 角色的创建、查询、更新、删除
+ * - 为角色分配权限
+ * - 权限的创建和查询
+ * - 为用户分配角色
+ */
 @ApiTags('RBAC 权限管理')
 @ApiBearerAuth()
 @Controller('rbac')

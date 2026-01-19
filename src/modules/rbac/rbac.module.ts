@@ -13,6 +13,12 @@ import { RbacService } from './services/rbac.service';
 import { RbacController } from './controllers/rbac.controller';
 import { RbacBootstrapService } from './services/rbac-bootstrap.service';
 
+/**
+ * RBAC 模块
+ *
+ * 提供角色、权限相关的实体、服务、控制器和守卫，
+ * 并在应用启动时初始化系统预置的角色、权限和默认用户。
+ */
 @Global()
 @Module({
   imports: [

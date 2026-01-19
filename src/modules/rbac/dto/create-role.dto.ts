@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 
+/**
+ * 创建角色的请求数据
+ */
 export class CreateRoleDto {
   @ApiProperty({ description: '角色唯一标识', example: 'admin', minLength: 2, maxLength: 50 })
   @IsString()
@@ -16,9 +19,4 @@ export class CreateRoleDto {
   @IsString()
   @IsOptional()
   description?: string;
-
-  @ApiProperty({ description: '父级角色ID', required: false, example: 'uuid-string' })
-  @IsString()
-  @IsOptional()
-  parentId?: string;
 }

@@ -1,20 +1,15 @@
 import { BaseEntity } from '@/database';
 import { User } from '@/modules/users/entities/user.entity';
-import {
-  Column,
-  Entity,
-  JoinTable,
-  ManyToMany,
-  PrimaryGeneratedColumn,
-  Tree,
-  TreeChildren,
-  TreeParent,
-} from 'typeorm';
-import { Permission } from './permission.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Permission } from './permission.entity';
 
+/**
+ * 角色实体
+ *
+ * 用于将一组权限绑定成可分配的角色，例如管理员、普通用户等。
+ */
 @Entity('roles', { comment: '角色信息表' })
-@Tree('closure-table')
 export class Role extends BaseEntity {
   @ApiProperty({ description: '角色ID' })
   @PrimaryGeneratedColumn('uuid')
@@ -35,19 +30,6 @@ export class Role extends BaseEntity {
   @ApiProperty({ description: '是否为系统内置角色', example: false })
   @Column({ default: false, comment: '是否为系统内置角色，不可删除', name: 'is_system' })
   isSystem: boolean;
-
-  @ApiProperty({ description: '租户ID', required: false })
-  @Column({ name: 'tenant_id', nullable: true, comment: '租户ID' })
-  tenantId: string;
-
-  // 角色继承设计
-  @ApiProperty({ description: '子角色列表', type: () => [Role], required: false })
-  @TreeChildren()
-  children: Role[];
-
-  @ApiProperty({ description: '父级角色', type: () => Role, required: false })
-  @TreeParent()
-  parent: Role;
 
   @ApiProperty({ description: '权限列表', type: () => [Permission], required: false })
   @ManyToMany(() => Permission, (permission) => permission.roles)

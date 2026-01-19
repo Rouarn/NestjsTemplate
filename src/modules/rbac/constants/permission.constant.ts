@@ -1,3 +1,8 @@
+/**
+ * 权限动作常量
+ *
+ * 用于描述系统中可受控制的操作，通常与接口授权一一对应。
+ */
 export enum PermissionAction {
   // 用户管理
   USER_READ = 'user:read',
@@ -22,6 +27,11 @@ export enum PermissionAction {
   AUTH_ACTIVE_USERS = 'auth:active-users',
 }
 
+/**
+ * 权限分组名称
+ *
+ * 用于在界面或日志中对权限进行分类展示。
+ */
 export const PERMISSION_GROUPS = {
   USER: '用户管理',
   ROLE: '角色管理',
@@ -29,6 +39,11 @@ export const PERMISSION_GROUPS = {
   SYSTEM: '系统管理',
 };
 
+/**
+ * 系统预置权限列表
+ *
+ * 在系统初始化阶段会写入数据库，作为基础权限数据。
+ */
 export const DEFAULT_PERMISSIONS = [
   // 用户管理
   {

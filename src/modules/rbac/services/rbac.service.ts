@@ -5,13 +5,19 @@ import { ICacheService } from '@/shared/cache/interfaces';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { SystemRoles } from '../constants/system-roles.constant';
+import { DEFAULT_SYSTEM_ROLES, SystemRoles } from '../constants/system-roles.constant';
 import { CreatePermissionDto } from '../dto/create-permission.dto';
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
 
+/**
+ * RBAC 核心服务
+ *
+ * 负责角色、权限的增删改查，以及用户与角色、角色与权限之间的绑定关系。
+ * 同时对用户权限进行缓存，加速鉴权流程。
+ */
 @Injectable()
 export class RbacService {
   constructor(
@@ -27,17 +33,14 @@ export class RbacService {
 
   /**
    * 获取默认角色 (通常是 User)
+   *
+   * 如果数据库中不存在默认角色，将以系统预置配置为模板创建一条记录。
    */
   async getDefaultRole(): Promise<Role> {
     let role = await this.roleRepository.findOne({ where: { name: SystemRoles.USER } });
     if (!role) {
       // 如果不存在，尝试创建默认角色 (仅用于初始化防止报错，实际应通过 Seed 数据)
-      role = this.roleRepository.create({
-        name: SystemRoles.USER,
-        alias: '标准用户',
-        description: '系统默认的标准用户角色',
-        isSystem: true,
-      });
+      role = this.roleRepository.create(DEFAULT_SYSTEM_ROLES[2]);
       await this.roleRepository.save(role);
     }
     return role;
@@ -45,6 +48,8 @@ export class RbacService {
 
   /**
    * 获取用户的所有权限
+   *
+   * 会优先读取缓存，若无缓存则从数据库聚合用户所有角色的权限后写入缓存。
    */
   async getUserPermissions(userId: string): Promise<string[]> {
     const cacheKey = `${CACHE_PREFIXES.RBAC_USER_PERMISSIONS}${userId}`;
@@ -87,19 +92,31 @@ export class RbacService {
     return user.roles.map((r) => r.name);
   }
 
+  /**
+   * 查询系统中所有权限
+   */
   async findAllPermissions(): Promise<Permission[]> {
     return this.permissionRepository.find();
   }
 
+  /**
+   * 创建角色
+   */
   async createRole(dto: CreateRoleDto): Promise<Role> {
     const role = this.roleRepository.create(dto);
     return this.roleRepository.save(role);
   }
 
+  /**
+   * 查询所有角色（包含已分配的权限）
+   */
   async findAllRoles(): Promise<Role[]> {
     return this.roleRepository.find({ relations: ['permissions'] });
   }
 
+  /**
+   * 更新角色信息
+   */
   async updateRole(id: string, dto: UpdateRoleDto): Promise<Role> {
     const role = await this.roleRepository.findOne({ where: { id } });
     if (!role) {
@@ -114,10 +131,15 @@ export class RbacService {
     return role;
   }
 
+  /**
+   * 删除角色
+   *
+   * 删除前会先清理相关用户的权限缓存。
+   */
   async deleteRole(id: string): Promise<void> {
     const role = await this.roleRepository.findOne({ where: { id } });
     if (!role) {
-      throw BusinessExceptionFactory.notFound('Role', { id });
+      throw BusinessExceptionFactory.notFound('角色', { id });
     }
 
     // 清除缓存
@@ -126,15 +148,23 @@ export class RbacService {
     await this.roleRepository.remove(role);
   }
 
+  /**
+   * 创建权限
+   */
   async createPermission(dto: CreatePermissionDto): Promise<Permission> {
     const permission = this.permissionRepository.create(dto);
     return this.permissionRepository.save(permission);
   }
 
+  /**
+   * 为角色分配权限
+   *
+   * 会覆盖原有权限集合，并清除所有拥有该角色的用户的权限缓存。
+   */
   async assignPermissions(roleId: string, permissionIds: string[]): Promise<Role> {
     const role = await this.roleRepository.findOne({ where: { id: roleId } });
     if (!role) {
-      throw BusinessExceptionFactory.notFound('Role', { id: roleId });
+      throw BusinessExceptionFactory.notFound('角色', { id: roleId });
     }
     const permissions = await this.permissionRepository.find({ where: { id: In(permissionIds) } });
     role.permissions = permissions;
@@ -145,6 +175,11 @@ export class RbacService {
     return this.roleRepository.save(role);
   }
 
+  /**
+   * 为用户分配角色
+   *
+   * 会覆盖原有角色集合，并清除对应用户的权限缓存。
+   */
   async assignRolesToUser(userId: string, roleIds: string[]): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {

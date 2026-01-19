@@ -6,6 +6,12 @@ import { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { RbacService } from '../services/rbac.service';
 
+/**
+ * 角色守卫
+ *
+ * 根据 {@link RequireRoles} 标记的角色标识，
+ * 检查当前用户是否具备访问当前处理程序所需的角色。
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
@@ -13,6 +19,9 @@ export class RolesGuard implements CanActivate {
     private rbacService: RbacService,
   ) {}
 
+  /**
+   * 决定当前请求是否被允许继续执行
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
       context.getHandler(),

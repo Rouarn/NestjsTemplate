@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 
+/**
+ * 创建权限的请求数据
+ */
 export class CreatePermissionDto {
   @ApiProperty({ description: '权限标识符', example: 'user:create', minLength: 3, maxLength: 100 })
   @IsString()

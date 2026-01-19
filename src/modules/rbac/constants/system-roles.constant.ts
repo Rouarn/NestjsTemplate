@@ -1,6 +1,9 @@
 import type { RegisterDto } from '@/modules/auth/dto/register.dto';
 import type { Role } from '../entities/role.entity';
 
+/**
+ * 系统默认角色
+ */
 export enum SystemRoles {
   /** 超级管理员 (站长) - 拥有所有权限 */
   ADMIN = 'R_SUPER_ADMIN',
@@ -10,8 +13,14 @@ export enum SystemRoles {
   USER = 'R_USER',
 }
 
+/**
+ * 系统默认角色列表
+ */
 export const SYSTEM_ROLES_LIST = Object.values(SystemRoles);
 
+/**
+ * 系统默认角色
+ */
 export const DEFAULT_SYSTEM_ROLES: Partial<Role>[] = [
   {
     name: SystemRoles.ADMIN,
@@ -33,10 +42,16 @@ export const DEFAULT_SYSTEM_ROLES: Partial<Role>[] = [
   },
 ];
 
+/**
+ * 系统默认用户
+ */
 export interface DefaultSystemUser extends Partial<RegisterDto> {
   roles: SystemRoles[];
 }
 
+/**
+ * 系统默认用户列表
+ */
 export const DEFAULT_SYSTEM_USERS: DefaultSystemUser[] = [
   {
     username: SystemRoles.ADMIN,

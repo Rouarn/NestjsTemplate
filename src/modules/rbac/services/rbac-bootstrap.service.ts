@@ -14,6 +14,12 @@ import {
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
 
+/**
+ * RBAC 启动引导服务
+ *
+ * 在应用模块初始化时，负责检查并初始化权限、角色、默认用户以及角色权限映射，
+ * 确保系统在全新环境下也能自动具备最基本的访问控制能力。
+ */
 @Injectable()
 export class RbacBootstrapService implements OnModuleInit {
   private readonly logger = new Logger(RbacBootstrapService.name);
@@ -30,6 +36,11 @@ export class RbacBootstrapService implements OnModuleInit {
     private readonly appConfig: AppConfigService,
   ) {}
 
+  /**
+   * 模块初始化生命周期钩子
+   *
+   * 会依次初始化权限、角色、默认用户，并建立权限分配关系。
+   */
   async onModuleInit(): Promise<void> {
     this.logger.log('检查和初始化RBAC系统数据...');
     await this.initPermissions();

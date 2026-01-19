@@ -1,8 +1,13 @@
 import { BaseEntity } from '@/database/database.entity';
+import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Role } from './role.entity';
-import { ApiProperty } from '@nestjs/swagger';
 
+/**
+ * 权限实体
+ *
+ * 描述系统中可授权的单个权限点，如 `user:create`。
+ */
 @Entity('permissions', { comment: '权限信息表' })
 export class Permission extends BaseEntity {
   @ApiProperty({ description: '权限ID' })
@@ -20,10 +25,6 @@ export class Permission extends BaseEntity {
   @ApiProperty({ description: '资源分组', example: '用户管理' })
   @Column({ comment: '资源分类' })
   group: string; // e.g., 'User Management'
-
-  @ApiProperty({ description: '租户ID', required: false })
-  @Column({ name: 'tenant_id', nullable: true, comment: '租户ID' })
-  tenantId: string;
 
   @ManyToMany(() => Role, (role) => role.permissions)
   roles: Role[];
