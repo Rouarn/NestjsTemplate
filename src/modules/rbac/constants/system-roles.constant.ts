@@ -54,21 +54,21 @@ export interface DefaultSystemUser extends Partial<RegisterDto> {
  */
 export const DEFAULT_SYSTEM_USERS: DefaultSystemUser[] = [
   {
-    username: SystemRoles.ADMIN,
+    username: 'superadmin',
     password: '123456',
     email: 'admin@example.com',
     nickname: '超级管理员',
     roles: [SystemRoles.ADMIN],
   },
   {
-    username: SystemRoles.EDITOR,
+    username: 'editor',
     password: '123456',
     email: 'editor@example.com',
     nickname: '内容管理员',
     roles: [SystemRoles.EDITOR],
   },
   {
-    username: SystemRoles.USER,
+    username: 'user',
     password: '123456',
     email: 'user@example.com',
     nickname: '普通用户',

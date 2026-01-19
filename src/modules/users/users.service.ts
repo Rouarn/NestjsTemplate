@@ -5,7 +5,7 @@ import { Auth } from '@/modules/auth/entities/auth.entity';
 import { ICacheService } from '@/shared/cache/interfaces';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
@@ -26,6 +26,7 @@ export class UsersService {
     private readonly authRepository: Repository<Auth>,
     @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
     private readonly cacheService: ICacheService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -158,7 +159,17 @@ export class UsersService {
    */
   async remove(id: string): Promise<{ message: string }> {
     const user = await this.findById(id);
-    await this.userRepository.remove(user);
+
+    await this.dataSource.transaction(async (manager) => {
+      // 删除用户（会自动删除 user_roles 中间表记录）
+      await manager.remove(user);
+
+      // 删除关联的认证信息
+      if (user.auth) {
+        await manager.remove(user.auth);
+      }
+    });
+
     // 清除缓存
     await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
     return { message: '用户删除成功' };
@@ -172,12 +183,26 @@ export class UsersService {
   async batchRemove(batchDeleteDto: BatchDeleteUserDto): Promise<{ message: string }> {
     const { ids } = batchDeleteDto;
 
-    const users = await this.userRepository.findBy({ id: In(ids) });
+    const users = await this.userRepository.find({
+      where: { id: In(ids) },
+      relations: ['auth'],
+    });
+
     if (users.length === 0) {
       throw BusinessExceptionFactory.notFound('要删除的用户', { ids });
     }
 
-    await this.userRepository.remove(users);
+    await this.dataSource.transaction(async (manager) => {
+      const authsToDelete = users.map((user) => user.auth).filter((auth) => !!auth);
+
+      // 删除用户
+      await manager.remove(users);
+
+      // 删除关联的认证信息
+      if (authsToDelete.length > 0) {
+        await manager.remove(authsToDelete);
+      }
+    });
 
     // 批量清除缓存
     const cacheKeys = users.map((user) => `${CACHE_PREFIXES.USER_PROFILE}${user.id}`);
