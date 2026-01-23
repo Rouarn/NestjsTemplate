@@ -78,7 +78,7 @@ export class JwtAuthGuard implements CanActivate {
 
       // 6. 检查数据库用户状态
       const authInfo = await this.authService.getAuthById(payload.authId);
-      if (!authInfo || authInfo.status !== Status.ENABLED) {
+      if (authInfo?.status !== Status.ENABLED) {
         BusinessExceptionFactory.forbidden('账号访问', {
           message: '账号已被禁用或不存在',
           authId: payload.authId,
