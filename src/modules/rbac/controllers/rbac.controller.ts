@@ -1,6 +1,30 @@
 import { JwtAuthGuard } from '@/common/guards';
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { PermissionsGuard } from '@/modules/rbac/guards';
+import { SupportedFormat } from '@/shared/import-export';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Response } from 'express';
 import { User } from '../../users/entities/user.entity';
 import { RequirePermissions } from '../decorators/permissions.decorator';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
@@ -10,8 +34,7 @@ import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
-import { PermissionsGuard } from '@/modules/rbac/guards';
-import { RbacService } from '../services/rbac.service';
+import { RbacService, RoleImportResult } from '../services/rbac.service';
 
 /**
  * RBAC 控制器
@@ -35,6 +58,45 @@ export class RbacController {
   @RequirePermissions('role:create')
   createRole(@Body() createRoleDto: CreateRoleDto): Promise<Role> {
     return this.rbacService.createRole(createRoleDto);
+  }
+
+  @ApiOperation({ summary: '导出角色', description: '导出系统中的角色数据' })
+  @ApiResponse({ status: 200, description: '导出成功' })
+  @Get('roles/export')
+  @RequirePermissions('role:read')
+  async exportRoles(
+    @Query('format') format: SupportedFormat = 'xlsx',
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.rbacService.exportRoles(format);
+    res.setHeader('Content-Type', result.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${encodeURIComponent(result.fileName)}`,
+    );
+    res.send(result.buffer);
+  }
+
+  @ApiOperation({ summary: '导入角色', description: '从文件导入角色数据' })
+  @ApiResponse({ status: 200, description: '导入成功' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: '角色数据文件 (xlsx, csv, json)',
+        },
+      },
+    },
+  })
+  @Post('roles/import')
+  @UseInterceptors(FileInterceptor('file'))
+  @RequirePermissions('role:create', 'role:update')
+  async importRoles(@UploadedFile() file: Express.Multer.File): Promise<RoleImportResult> {
+    return this.rbacService.importRoles(file);
   }
 
   @ApiOperation({ summary: '获取所有角色', description: '获取系统中定义的所有角色及其权限' })

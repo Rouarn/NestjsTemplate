@@ -42,7 +42,11 @@ export class BootstrapLogHelper {
     this.logger.log('');
     this.logger.log('┌─ 📂 配置详情 ───────────────────────────────────────────────────┐');
     this.logger.log(`│ 📂 配置根目录: ${staticConfig.root}`);
-    this.logger.log(`│ ⚙️  配置选项: ${JSON.stringify(staticConfig.options)}`);
+    this.logger.log(`│ ⚙️  配置选项:`);
+    const optionsStr = JSON.stringify(staticConfig.options, null, 2);
+    optionsStr.split('\n').forEach((line) => {
+      this.logger.log(`│    ${line}`);
+    });
     this.logger.log(`│ 📍 当前目录: ${__dirname}`);
     this.logger.log(`│ 🎯 解析路径: ${staticPath}`);
     this.logger.log('└─────────────────────────────────────────────────────────────────┘');

@@ -2,6 +2,7 @@ import { CACHE_PREFIXES, CACHE_TOKENS } from '@/common/constants';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { User } from '@/modules/users/entities/user.entity';
 import { ICacheService } from '@/shared/cache/interfaces';
+import { ExportResult, ImportExportService, SupportedFormat } from '@/shared/import-export';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -11,6 +12,22 @@ import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
+
+export interface RoleImportItem {
+  name: string;
+  alias: string;
+  description?: string;
+  isSystem?: boolean | string;
+}
+
+export interface RoleImportResult {
+  success: number;
+  failed: number;
+  errors: {
+    row: RoleImportItem;
+    message: string;
+  }[];
+}
 
 /**
  * RBAC 核心服务
@@ -30,6 +47,96 @@ export class RbacService {
     @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
     private cacheService: ICacheService,
   ) {}
+
+  private readonly importExportService = new ImportExportService();
+
+  /**
+   * 导出角色数据
+   */
+  async exportRoles(format: SupportedFormat = 'xlsx'): Promise<ExportResult> {
+    const roles = await this.findAllRoles();
+    const data = roles.map((role) => ({
+      name: role.name,
+      alias: role.alias,
+      description: role.description,
+      isSystem: role.isSystem ? '是' : '否',
+    }));
+
+    return this.importExportService.exportToFile(data, {
+      format,
+      mapping: {
+        name: '角色标识',
+        alias: '角色名称',
+        description: '描述',
+        isSystem: '是否系统内置',
+      },
+      sheetName: '角色列表',
+      fileName: `角色列表_${new Date().toISOString().split('T')[0]}`,
+    });
+  }
+
+  /**
+   * 导入角色数据
+   */
+  async importRoles(file: Express.Multer.File): Promise<RoleImportResult> {
+    const result = await this.importExportService.importFromFile<RoleImportItem>(file, {
+      mapping: {
+        name: '角色标识',
+        alias: '角色名称',
+        description: '描述',
+        isSystem: '是否系统内置',
+      },
+    });
+
+    const importResult: RoleImportResult = {
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    const data = result.data;
+
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+
+      try {
+        if (!item.name || !item.alias) {
+          throw new Error('角色标识和名称不能为空');
+        }
+
+        const isSystem = item.isSystem === '是';
+        let role = await this.roleRepository.findOne({ where: { name: item.name } });
+
+        if (role) {
+          // 更新
+          role.alias = item.alias;
+          role.description = item.description ?? '';
+          // 系统内置属性通常不建议通过导入修改，但这里保持同步
+          // role.isSystem = isSystem;
+          await this.roleRepository.save(role);
+        } else {
+          // 创建
+          role = this.roleRepository.create({
+            name: item.name,
+            alias: item.alias,
+            description: item.description,
+            isSystem,
+          });
+          await this.roleRepository.save(role);
+        }
+        importResult.success++;
+      } catch (error: unknown) {
+        importResult.failed++;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        importResult.errors.push({
+          row: item,
+          message: errorMessage,
+        });
+      }
+    }
+
+    return importResult;
+  }
 
   /**
    * 获取默认角色 (通常是 User)

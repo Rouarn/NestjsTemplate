@@ -26,7 +26,7 @@ import { IsNotEmpty, IsString, Length } from 'class-validator';
 export class LoginDto {
   @ApiProperty({
     description: '用户名',
-    example: 'newuser',
+    example: 'superadmin',
     minLength: 3,
     maxLength: 20,
   })
@@ -38,7 +38,7 @@ export class LoginDto {
 
   @ApiProperty({
     description: '密码',
-    example: 'password123',
+    example: '123456',
     minLength: 6,
     maxLength: 50,
   })

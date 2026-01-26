@@ -9,6 +9,16 @@ export function detectFormat(file: FileLike, fallback?: SupportedFormat): Suppor
     if (ext.endsWith('.xlsx')) return 'xlsx';
     if (ext.endsWith('.csv')) return 'csv';
     if (ext.endsWith('.json')) return 'json';
+  } else if (
+    typeof file === 'object' &&
+    file !== null &&
+    'originalname' in file &&
+    file.originalname
+  ) {
+    const ext = extname(file.originalname).toLowerCase();
+    if (ext.endsWith('.xlsx')) return 'xlsx';
+    if (ext.endsWith('.csv')) return 'csv';
+    if (ext.endsWith('.json')) return 'json';
   }
   return fallback ?? 'csv';
 }
@@ -40,10 +50,30 @@ export function applyMapping(
 ): Record<string, unknown> {
   if (!mapping) return { ...record };
   const out: Record<string, unknown> = {};
+
+  // 预处理 record keys，建立去空格后的 key 映射，以支持模糊匹配
+  const normalizedKeys: Record<string, string> = {};
+  Object.keys(record).forEach((k) => {
+    normalizedKeys[k.trim()] = k;
+  });
+
   for (const internal of Object.keys(mapping)) {
     const m = mapping[internal];
     if (typeof m === 'string') {
-      out[internal] = record[m];
+      // 1. 尝试精确匹配
+      if (Object.prototype.hasOwnProperty.call(record, m)) {
+        out[internal] = record[m];
+      } else {
+        // 2. 尝试去空格匹配
+        const trimmedM = m.trim();
+        const actualKey = normalizedKeys[trimmedM];
+        if (actualKey && Object.prototype.hasOwnProperty.call(record, actualKey)) {
+          out[internal] = record[actualKey];
+        } else {
+          // 3. 仍未找到，赋值 undefined
+          out[internal] = undefined;
+        }
+      }
     } else if (typeof m === 'function') {
       const v = record[internal];
       out[internal] = m(v, record);

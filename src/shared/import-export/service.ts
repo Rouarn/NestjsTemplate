@@ -29,7 +29,15 @@ export class ImportExportService {
       ? config.headers
       : this.inferHeadersForExport(data, config.mapping);
     const chunkSize = config.chunkSize && config.chunkSize > 0 ? config.chunkSize : data.length;
-    const fileName = config.fileName ?? this.defaultFileName(format);
+    let fileName = config.fileName ?? this.defaultFileName(format);
+
+    // 如果文件名没有对应的后缀，自动补全
+    if (!fileName.toLowerCase().endsWith(`.${format}`)) {
+      // 特殊处理：json 和 ndjson 都可以用 json 后缀，或者 ndjson 后缀，这里简单起见统一检查
+      // 如果是 json format 且配置了 ndjson，可能用户想用 .ndjson，但这里简单处理，只补全 format
+      // 实际上通常用户只传 'filename'，我们补 '.xlsx'
+      fileName = `${fileName}.${format === 'csv' ? 'csv' : format === 'xlsx' ? 'xlsx' : 'json'}`;
+    }
 
     if (format === 'csv') {
       const mapped = data.map((r) => reverseMapping(r as Record<string, unknown>, config.mapping));
