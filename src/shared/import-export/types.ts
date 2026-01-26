@@ -58,7 +58,6 @@ export interface ImportError {
 export interface ImportResult<T = unknown> {
   data: T[];
   errors?: ImportError[];
-  headers?: string[]; // 读取到的原始表头
 }
 
 export interface ExportResult {
