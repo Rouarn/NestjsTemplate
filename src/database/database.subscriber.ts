@@ -1,14 +1,8 @@
 import { AppConfigService } from '@/config';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import {
-  DataSource,
-  EntitySubscriberInterface,
-  EventSubscriber,
-  InsertEvent,
-  UpdateEvent,
-} from 'typeorm';
+import { EntitySubscriberInterface, EventSubscriber, InsertEvent, UpdateEvent } from 'typeorm';
 import { BaseEntity } from './database.entity';
+import { DatabaseService } from './database.service';
 
 /**
  * 数据库事件订阅者
@@ -24,10 +18,10 @@ import { BaseEntity } from './database.entity';
 @EventSubscriber()
 export class DatabaseSubscriber implements EntitySubscriberInterface<BaseEntity> {
   constructor(
-    @InjectDataSource() readonly dataSource: DataSource,
+    private readonly databaseService: DatabaseService,
     private readonly appConfig: AppConfigService,
   ) {
-    dataSource.subscribers.push(this);
+    this.databaseService.getDataSource().subscribers.push(this);
   }
 
   /**

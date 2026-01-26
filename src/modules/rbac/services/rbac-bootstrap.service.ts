@@ -18,7 +18,7 @@ import { Role } from '../entities/role.entity';
  * RBAC 启动引导服务
  *
  * 在应用模块初始化时，负责检查并初始化权限、角色、默认用户以及角色权限映射，
- * 确保系统在全新环境下也能自动具备最基本的访问控制能力。
+ * 确保系统在全新环境下也能自动具备最基本地访问控制能力。
  */
 @Injectable()
 export class RbacBootstrapService implements OnModuleInit {
@@ -72,9 +72,7 @@ export class RbacBootstrapService implements OnModuleInit {
    * 初始化角色数据
    */
   private async initRoles(): Promise<void> {
-    const defaultRoles: Partial<Role>[] = DEFAULT_SYSTEM_ROLES;
-
-    for (const r of defaultRoles) {
+    for (const r of DEFAULT_SYSTEM_ROLES) {
       const exists = await this.roleRepository.findOne({ where: { name: r.name } });
       if (!exists) {
         this.logger.log(`创建系统角色: ${r.name}`);

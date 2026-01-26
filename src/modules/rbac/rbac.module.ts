@@ -6,7 +6,7 @@ import { AuthModule } from '../auth/auth.module';
 import { Auth } from '../auth/entities/auth.entity';
 import { Permission } from './entities/permission.entity';
 import { Role } from './entities/role.entity';
-import { PermissionsGuard } from './guards/permissions.guard';
+import { PermissionsGuard } from '@/modules/rbac/guards';
 import { RolesGuard } from './guards/roles.guard';
 import { RbacService } from './services/rbac.service';
 

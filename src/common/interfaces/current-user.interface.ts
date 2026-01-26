@@ -1,8 +1,10 @@
+import type { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
+
 /**
  * 当前用户信息接口
  *
  * 定义在请求处理过程中可用的当前经过身份验证的用户信息结构。
- * 这些信息通常由 Guards（如 JwtAuthGuard）注入到 request 对象中。
+ * 这些信息通常由 Guards（如 JwtAuthGuard）注入到 request 对象中。1
  */
 export interface CurrentUser {
   /** 认证ID */
@@ -15,7 +17,7 @@ export interface CurrentUser {
   username: string;
 
   /** 用户角色列表 */
-  roles: string[];
+  roles: SystemRoles[];
 
   /** 最后登录时间 */
   lastLoginAt?: Date;

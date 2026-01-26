@@ -1,11 +1,12 @@
 import { CACHE_PREFIXES, CACHE_TOKENS, CACHE_TTL } from '@/common/constants';
 import { Status, toggleStatus } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
+import { DatabaseService } from '@/database';
 import { Auth } from '@/modules/auth/entities/auth.entity';
 import { ICacheService } from '@/shared/cache/interfaces';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
@@ -26,14 +27,14 @@ export class UsersService {
     private readonly authRepository: Repository<Auth>,
     @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
     private readonly cacheService: ICacheService,
-    private readonly dataSource: DataSource,
+    private readonly databaseService: DatabaseService,
   ) {}
 
   /**
    * 获取所有用户（带分页和缓存）
-   * @param current 当前页码
-   * @param size 每页数量
    * @returns 用户列表和总数
+   * @param queryDto
+   *
    */
   async findAll(queryDto: QueryUserDto): Promise<{ list: User[]; total: number }> {
     const { current, size, nickname, email, roles, status } = queryDto;
@@ -160,7 +161,7 @@ export class UsersService {
   async remove(id: string): Promise<{ message: string }> {
     const user = await this.findById(id);
 
-    await this.dataSource.transaction(async (manager) => {
+    await this.databaseService.getDataSource().transaction(async (manager) => {
       // 删除用户（会自动删除 user_roles 中间表记录）
       await manager.remove(user);
 
@@ -192,7 +193,7 @@ export class UsersService {
       throw BusinessExceptionFactory.notFound('要删除的用户', { ids });
     }
 
-    await this.dataSource.transaction(async (manager) => {
+    await this.databaseService.getDataSource().transaction(async (manager) => {
       const authsToDelete = users.map((user) => user.auth).filter((auth) => !!auth);
 
       // 删除用户

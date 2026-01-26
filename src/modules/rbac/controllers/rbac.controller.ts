@@ -10,7 +10,7 @@ import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
-import { PermissionsGuard } from '../guards/permissions.guard';
+import { PermissionsGuard } from '@/modules/rbac/guards';
 import { RbacService } from '../services/rbac.service';
 
 /**

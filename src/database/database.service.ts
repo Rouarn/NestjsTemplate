@@ -25,7 +25,7 @@ export class DatabaseService implements OnModuleInit {
    * 用于检查数据库连接是否成功建立，并记录相关日志。
    */
   async onModuleInit(): Promise<void> {
-    if (this.dataSource.isInitialized) {
+    if (this.isConnected()) {
       this.logger.log('数据库连接已成功建立。');
     } else {
       this.logger.error('数据库连接失败。');

@@ -11,7 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators';
-import { SystemRoles } from '../../modules/rbac/constants/system-roles.constant';
+import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 
 /**
  * JwtAuthGuard（JWT 认证守卫）
@@ -107,7 +107,7 @@ export class JwtAuthGuard implements CanActivate {
         authId: authInfo.id,
         userId: authInfo.user?.id || authInfo.id,
         username: authInfo.username,
-        roles: authInfo.user?.roles?.map((r) => r.name) || [SystemRoles.USER],
+        roles: authInfo.user?.roles?.map((r) => r.name as SystemRoles) || [SystemRoles.USER],
         lastLoginAt: authInfo.lastLoginAt,
       };
 

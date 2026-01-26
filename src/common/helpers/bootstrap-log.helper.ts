@@ -2,9 +2,31 @@ import type { AppConfigService } from '@/config';
 import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { ServeStaticOptions } from '@nestjs/platform-express/interfaces/serve-static-options.interface';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 export class BootstrapLogHelper {
   private static readonly logger = new Logger('Bootstrap');
+
+  /**
+   * 打开指定 URL 在默认浏览器中
+   */
+  static async openBrowser(url: string): Promise<void> {
+    const startCommand =
+      process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+
+    try {
+      const execPromise = promisify(exec);
+      if (process.platform === 'win32') {
+        await execPromise(`${startCommand} "" "${url}"`);
+      } else {
+        await execPromise(`${startCommand} "${url}"`);
+      }
+    } catch (e) {
+      // 忽略打开浏览器失败的错误，避免掩盖原始错误
+      this.logger.error(`无法打开浏览器: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   /**
    * 输出静态资源配置信息
@@ -99,15 +121,18 @@ export class BootstrapLogHelper {
   /**
    * 输出应用启动失败信息
    */
-  static logApplicationError(error: unknown): void {
+  static async logApplicationError(error: unknown): Promise<void> {
+    const errorMessage = error instanceof Error ? (error.stack ?? error.message) : String(error);
     this.logger.error('');
     this.logger.error('╔' + '═'.repeat(50) + '╗');
     this.logger.error('║' + ' '.repeat(13) + '❌ 应用程序启动失败 ❌' + ' '.repeat(15) + '║');
     this.logger.error('╚' + '═'.repeat(50) + '╝');
-    this.logger.error(
-      '🔍 错误详情: ' + (error instanceof Error ? (error.stack ?? error.message) : String(error)),
-    );
+    this.logger.error('🔍 错误详情: ' + errorMessage);
     this.logger.error('💡 请检查配置文件和依赖项是否正确');
     this.logger.error('');
+
+    // 打开浏览器 必应搜索 错误信息
+    const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(errorMessage)}`;
+    await this.openBrowser(searchUrl);
   }
 }

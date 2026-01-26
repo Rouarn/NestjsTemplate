@@ -166,7 +166,7 @@ async function bootstrap(): Promise<void> {
       appConfig.staticAssetsOptions,
     );
   } catch (error) {
-    BootstrapLogHelper.logApplicationError(error);
+    await BootstrapLogHelper.logApplicationError(error);
     process.exit(1);
   }
 }

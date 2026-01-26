@@ -166,8 +166,8 @@ export class RbacService {
     if (!role) {
       throw BusinessExceptionFactory.notFound('角色', { id: roleId });
     }
-    const permissions = await this.permissionRepository.find({ where: { id: In(permissionIds) } });
-    role.permissions = permissions;
+
+    role.permissions = await this.permissionRepository.find({ where: { id: In(permissionIds) } });
 
     // 清除拥有该角色的用户的权限缓存
     await this.clearCacheForRole(roleId);
@@ -185,8 +185,8 @@ export class RbacService {
     if (!user) {
       throw BusinessExceptionFactory.notFound('User');
     }
-    const roles = await this.roleRepository.find({ where: { id: In(roleIds) } });
-    user.roles = roles;
+
+    user.roles = await this.roleRepository.find({ where: { id: In(roleIds) } });
 
     // 清除用户的权限缓存
     await this.cacheService.del(`${CACHE_PREFIXES.RBAC_USER_PERMISSIONS}${userId}`);

@@ -3,6 +3,7 @@ import { CurrentUser } from '@/common/interfaces';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
+import { SystemRoles } from '../constants/system-roles.constant';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { RbacService } from '../services/rbac.service';
 
@@ -23,7 +24,7 @@ export class RolesGuard implements CanActivate {
    * 决定当前请求是否被允许继续执行
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
+    const requiredRoles = this.reflector.getAllAndOverride<(SystemRoles | string)[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -40,7 +41,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // 优先使用请求中的用户信息（已由JwtAuthGuard填充），减少数据库查询
-    let userRoles = user.roles;
+    let userRoles: (SystemRoles | string)[] = user.roles;
 
     if (!userRoles || userRoles.length === 0) {
       userRoles = await this.rbacService.getUserRoles(user.userId);

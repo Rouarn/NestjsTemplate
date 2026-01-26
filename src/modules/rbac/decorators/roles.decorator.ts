@@ -1,3 +1,4 @@
+import type { SystemRoles } from '../constants/system-roles.constant';
 import type { CustomDecorator } from '@nestjs/common';
 import { SetMetadata } from '@nestjs/common';
 
@@ -12,5 +13,5 @@ export const ROLES_KEY = 'roles';
  * 在控制器或处理函数上标记所需的角色标识，
  * 由 {@link RolesGuard} 在请求时进行校验。
  */
-export const RequireRoles = (...roles: string[]): CustomDecorator<string> =>
+export const RequireRoles = (...roles: (SystemRoles | string)[]): CustomDecorator<string> =>
   SetMetadata(ROLES_KEY, roles);

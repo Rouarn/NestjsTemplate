@@ -29,10 +29,3 @@ export const DEFAULT_PAGINATION: PaginationParams & {
   MIN_PAGE: 1,
   DEFAULT_PAGE_SIZE: 10,
 };
-
-/**
- * 分页字段名常量
- *
- * 说明：请求与拦截器识别分页的标准字段名。
- */
-export const PAGING_FIELDS: readonly ['current', 'size'] = ['current', 'size'] as const;

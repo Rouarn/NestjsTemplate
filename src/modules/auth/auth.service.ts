@@ -12,7 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as svgCaptcha from 'svg-captcha';
-import { DataSource, In, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { RbacService } from '../rbac/services/rbac.service';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
@@ -26,6 +26,7 @@ import { ChangePasswordDto } from './dto/password.dto';
 import { AuthCreateUserResponse, RegisterDto } from './dto/register.dto';
 import type { RefreshTokenDto, TokenResponseDto } from './dto/token.dto';
 import { Auth } from './entities/auth.entity';
+import { DatabaseService } from '@/database';
 
 /**
  * 认证服务（AuthService）
@@ -36,7 +37,7 @@ export class AuthService {
   constructor(
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
-    private readonly dataSource: DataSource,
+    private readonly databaseService: DatabaseService,
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly appConfig: AppConfigService,
@@ -115,7 +116,7 @@ export class AuthService {
    * @throws BadRequestException 注册数据验证失败
    */
   async register(registerDto: RegisterDto): Promise<AuthCreateUserResponse> {
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.databaseService.getDataSource().transaction(async (manager) => {
       // 检查用户名是否已存在
       const existingAuth = await manager.findOne(Auth, {
         where: { username: registerDto.username },

@@ -19,25 +19,34 @@ export enum SystemRoles {
 export const SYSTEM_ROLES_LIST = Object.values(SystemRoles);
 
 /**
+ * 系统默认角色描述
+ */
+export const DEFAULT_SYSTEM_ROLES_DESCRIPTION = {
+  [SystemRoles.ADMIN]: '系统最高权限角色，拥有所有功能',
+  [SystemRoles.EDITOR]: '负责内容管理与发布',
+  [SystemRoles.USER]: '系统默认的标准用户角色',
+};
+
+/**
  * 系统默认角色
  */
 export const DEFAULT_SYSTEM_ROLES: Partial<Role>[] = [
   {
     name: SystemRoles.ADMIN,
     alias: '超级管理员',
-    description: '拥有系统所有权限的超级管理员',
+    description: DEFAULT_SYSTEM_ROLES_DESCRIPTION[SystemRoles.ADMIN],
     isSystem: true,
   },
   {
     name: SystemRoles.EDITOR,
     alias: '内容管理员',
-    description: '负责内容管理与发布',
+    description: DEFAULT_SYSTEM_ROLES_DESCRIPTION[SystemRoles.EDITOR],
     isSystem: true,
   },
   {
     name: SystemRoles.USER,
     alias: '普通用户',
-    description: '系统默认的标准用户角色',
+    description: DEFAULT_SYSTEM_ROLES_DESCRIPTION[SystemRoles.USER],
     isSystem: true,
   },
 ];

@@ -6,7 +6,7 @@ import { Column } from 'typeorm';
  * @description
  * 所有业务实体类都应继承此类。它提供了基础的审计字段（创建时间和更新时间）。
  *
- * 具体的列名映射（如 createTime, updateTime）由 {@link CustomNamingStrategy} 处理。
+ * 具体地列名映射（如 createTime, updateTime）由 {@link CustomNamingStrategy} 处理。
  * 字段的自动更新逻辑由 {@link DatabaseSubscriber} 通过依赖注入 AppConfigService 动态控制。
  *
  * @abstract
