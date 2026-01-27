@@ -213,7 +213,7 @@ export class AuthController {
   @ApiBearerAuth()
   @RequirePermissions(PermissionAction.AUTH_ACTIVE_USERS)
   @Get('active-users')
-  async getActiveUsers(): Promise<User[]> {
+  async getActiveUsers(): Promise<Partial<User>[]> {
     return await this.authService.getActiveUsers();
   }
 

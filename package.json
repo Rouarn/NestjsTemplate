@@ -19,7 +19,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "type:check": "tsc --noEmit",
-    "code:fix": "pnpm run format && pnpm run lint && pnpm run type:check",
+    "code:fix": "pnpm run format && pnpm run lint",
     "code:check": "pnpm run format:check && pnpm run lint:check && pnpm run type:check",
     "update": "pnpm update",
     "update:latest": "pnpm update --latest",

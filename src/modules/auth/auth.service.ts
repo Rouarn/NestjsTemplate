@@ -443,7 +443,7 @@ export class AuthService {
    *
    * @returns 当前在线的用户列表
    */
-  async getActiveUsers(): Promise<User[]> {
+  async getActiveUsers(): Promise<Partial<User>[]> {
     // 获取所有用户令牌键
     const keys = await this.cacheService.keys(`${CACHE_PREFIXES.USER_TOKENS}*`);
 
@@ -463,11 +463,24 @@ export class AuthService {
     // 查询对应的用户信息
     const auths = await this.authRepository.find({
       where: { id: In(authIds) },
-      relations: ['user'],
+      select: {
+        id: true,
+        username: true,
+        lastLoginAt: true,
+        user: {
+          id: true,
+          nickname: true,
+          roles: {
+            id: true,
+            alias: true,
+          },
+        },
+      },
+      relations: ['user', 'user.roles'],
     });
 
     // 提取并返回用户实体
-    return auths.map((auth) => auth.user).filter((user) => !!user);
+    return auths;
   }
 
   /**
@@ -734,7 +747,6 @@ export class AuthService {
       updateData.lastLoginIp = clientIp;
     }
     await this.authRepository.update(authId, updateData);
-    console.log('更新最后登录时间', updateData);
     await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 }
