@@ -194,24 +194,7 @@ export class AuthService {
     }
 
     // 检查账号是否被锁定
-    if (this.isAccountLocked(auth)) {
-      const lockDuration = this.calculateLockDuration(auth.loginAttempts);
-      const lockTime = new Date(auth.lockedAt!.getTime() + lockDuration);
-
-      if (new Date() < lockTime) {
-        const remainingMs = lockTime.getTime() - new Date().getTime();
-        const remainingMinutes = Math.ceil(remainingMs / 60000);
-
-        throw BusinessExceptionFactory.systemBusy({
-          message: `账号已被锁定，请 ${remainingMinutes} 分钟后再试`,
-          lockTime: lockTime.toLocaleString(),
-          locked: true,
-          remainingMinutes,
-        });
-      }
-      // 锁定时间已过，允许尝试（不重置loginAttempts，保持指数退避基数）
-      // 只有在登录成功时才重置
-    }
+    this.checkAccountStatus(auth);
 
     // 验证密码
     const isPasswordValid = await this.validatePassword(loginDto.password, auth.password);
@@ -239,14 +222,6 @@ export class AuthService {
       throw BusinessExceptionFactory.validation('登录密码', { username: loginDto.username });
     }
 
-    // 检查认证状态
-    if (!isEnabled(auth.status)) {
-      throw BusinessExceptionFactory.forbidden('访问被禁用', {
-        username: loginDto.username,
-        disabled: true,
-      });
-    }
-
     // 登录成功，重置登录失败次数和锁定状态
     await this.unlockAccount(auth.id);
 
@@ -258,48 +233,7 @@ export class AuthService {
       throw BusinessExceptionFactory.notFound('用户数据异常：缺少关联的用户信息');
     }
 
-    const roles = auth.user.roles.map((r) => r.name) || [SystemRoles.USER];
-    const payload = {
-      authId: auth.id,
-      userId: auth.user.id,
-      username: auth.username,
-      roles,
-      jti: uuid4(),
-    };
-
-    // 单点登录控制：检查并移除旧的令牌
-    const existingJti = await this.cacheService.get(`${CACHE_PREFIXES.USER_TOKENS}${auth.id}`);
-    if (existingJti) {
-      // 将旧令牌加入黑名单
-      await this.cacheService.set(
-        `${CACHE_PREFIXES.BLACKLIST}${auth.id}:${existingJti}`,
-        getCurrentTimestamp(),
-        {
-          ttl: this.appConfig.jwtOptions.accessTokenTtl,
-        },
-      );
-    }
-
-    const accessToken = this.jwtService.sign(payload);
-    const refreshToken = await this.generateRefreshToken(auth.id);
-
-    // 存储 UserToken 到缓存
-    await this.cacheService.set(`${CACHE_PREFIXES.USER_TOKENS}${auth.id}`, payload.jti, {
-      ttl: this.appConfig.jwtOptions.accessTokenTtl,
-    });
-
-    // 存储 RefreshToken 到缓存
-    await this.cacheService.set(`${CACHE_PREFIXES.REFRESH_TOKENS}${auth.id}`, refreshToken, {
-      ttl: this.appConfig.jwtOptions.refreshTokenTtl,
-    });
-
-    return {
-      accessToken,
-      refreshToken,
-      tokenType: JWT_CONSTANTS.TOKEN_PREFIX,
-      accessTokenTtl: this.appConfig.jwtOptions.accessTokenTtl,
-      refreshTokenTtl: this.appConfig.jwtOptions.refreshTokenTtl, // 7 days
-    };
+    return this.issueTokenResponse(auth);
   }
 
   /**
@@ -330,51 +264,85 @@ export class AuthService {
     }
 
     // 检查账号状态
+    this.checkAccountStatus(auth);
+
+    return this.issueTokenResponse(auth);
+  }
+
+  /**
+   * 检查账户状态（锁定、禁用）
+   * @param auth 认证实体
+   */
+  private checkAccountStatus(auth: Auth): void {
+    // 检查账号是否被锁定
     if (this.isAccountLocked(auth)) {
-      throw BusinessExceptionFactory.forbidden('账户被锁定', {
-        authId,
+      const lockDuration = this.calculateLockDuration(auth.loginAttempts);
+      const lockTime = new Date(auth.lockedAt!.getTime() + lockDuration);
+
+      const remainingMs = lockTime.getTime() - new Date().getTime();
+      const remainingMinutes = Math.ceil(remainingMs / 60000);
+
+      throw BusinessExceptionFactory.systemBusy({
+        message: `账号已被锁定，请 ${remainingMinutes} 分钟后再试`,
+        lockTime: lockTime.toLocaleString(),
         locked: true,
+        remainingMinutes,
       });
     }
 
+    // 检查认证状态
     if (!isEnabled(auth.status)) {
-      throw BusinessExceptionFactory.forbidden('用户已被禁用', {
-        authId,
+      throw BusinessExceptionFactory.forbidden('访问被禁用', {
+        username: auth.username,
         disabled: true,
       });
     }
+  }
 
-    // 生成新的访问令牌
+  /**
+   * 生成并缓存令牌响应
+   * @param auth 认证实体
+   * @returns 令牌响应
+   */
+  private async issueTokenResponse(auth: Auth): Promise<TokenResponseDto> {
+    const userRoles = auth.user?.roles?.map((r) => r.name);
+    const roles = userRoles && userRoles.length > 0 ? userRoles : [SystemRoles.USER];
+
     const payload = {
       authId: auth.id,
-      username: auth.username,
       userId: auth.user?.id || auth.id,
-      roles:
-        auth.user?.roles && auth.user.roles.length > 0
-          ? auth.user.roles.map((r) => r.name)
-          : [SystemRoles.USER],
+      username: auth.username,
+      roles,
       jti: uuid4(),
     };
 
-    const accessToken = this.jwtService.sign(payload);
-    const newRefreshToken = await this.generateRefreshToken(auth.id);
+    // 单点登录控制：检查并移除旧的令牌
+    const existingJti = await this.cacheService.get<string>(
+      `${CACHE_PREFIXES.USER_TOKENS}${auth.id}`,
+    );
+    if (existingJti) {
+      await this.addToBlacklist(auth.id, existingJti);
+    }
 
-    // 更新 UserToken 到缓存
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = await this.generateRefreshToken(auth.id);
+
+    // 存储 UserToken 到缓存
     await this.cacheService.set(`${CACHE_PREFIXES.USER_TOKENS}${auth.id}`, payload.jti, {
       ttl: this.appConfig.jwtOptions.accessTokenTtl,
     });
 
-    // 更新 RefreshToken 到缓存
-    await this.cacheService.set(`${CACHE_PREFIXES.REFRESH_TOKENS}${auth.id}`, newRefreshToken, {
+    // 存储 RefreshToken 到缓存
+    await this.cacheService.set(`${CACHE_PREFIXES.REFRESH_TOKENS}${auth.id}`, refreshToken, {
       ttl: this.appConfig.jwtOptions.refreshTokenTtl,
     });
 
     return {
       accessToken,
-      refreshToken: newRefreshToken,
+      refreshToken,
       tokenType: JWT_CONSTANTS.TOKEN_PREFIX,
       accessTokenTtl: this.appConfig.jwtOptions.accessTokenTtl,
-      refreshTokenTtl: this.appConfig.jwtOptions.refreshTokenTtl, // 7天
+      refreshTokenTtl: this.appConfig.jwtOptions.refreshTokenTtl, // 7 days
     };
   }
 
@@ -462,22 +430,10 @@ export class AuthService {
       throw BusinessExceptionFactory.unauthorized('令牌无效');
     }
 
-    // 计算过期时间
-    const accessTokenTtl = tokenPayload.exp - tokenPayload.iat;
+    // 计算过期时间 (exp - iat 为总有效期，这里保持原逻辑)
+    const ttl = tokenPayload.exp - tokenPayload.iat;
 
-    await this.cacheService.set(
-      `${CACHE_PREFIXES.BLACKLIST}${tokenPayload.authId}:${tokenPayload.jti}`,
-      getCurrentTimestamp(),
-      {
-        ttl: accessTokenTtl,
-      },
-    );
-
-    // 清除 Token
-    await this.cacheService.del(`${CACHE_PREFIXES.USER_TOKENS}${tokenPayload.authId}`);
-    await this.cacheService.del(`${CACHE_PREFIXES.REFRESH_TOKENS}${tokenPayload.authId}`);
-    // 清除用户缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${tokenPayload.userId}`);
+    await this.revokeUserSession(tokenPayload.authId, tokenPayload.jti, tokenPayload.userId, ttl);
 
     return { message: '退出登录成功' };
   }
@@ -520,22 +476,61 @@ export class AuthService {
    * @param authId 认证ID
    */
   async kickOutUserById(authId: string): Promise<void> {
-    const currentJti = await this.cacheService.get(`${CACHE_PREFIXES.USER_TOKENS}${authId}`);
+    await this.revokeUserSession(authId);
+  }
 
-    if (currentJti) {
-      await this.cacheService.set(
-        `${CACHE_PREFIXES.BLACKLIST}${authId}:${currentJti}`,
-        getCurrentTimestamp(),
-        {
-          ttl: this.appConfig.jwtOptions.accessTokenTtl,
-        },
-      );
-      // 清除用户当前令牌记录
-      await this.cacheService.del(`${CACHE_PREFIXES.USER_TOKENS}${authId}`);
+  /**
+   * 撤销用户会话
+   *
+   * 将当前令牌加入黑名单，并清除相关缓存
+   *
+   * @param authId 认证ID
+   * @param jti 令牌ID（可选，如果不提供则尝试从缓存获取）
+   * @param userId 用户ID（可选，用于清除用户资料缓存）
+   * @param blacklistTtl 黑名单过期时间（可选）
+   */
+  private async revokeUserSession(
+    authId: string,
+    jti?: string,
+    userId?: string,
+    blacklistTtl?: number,
+  ): Promise<void> {
+    // 1. 确定 JTI
+    let targetJti = jti;
+    targetJti ??=
+      (await this.cacheService.get<string>(`${CACHE_PREFIXES.USER_TOKENS}${authId}`)) ?? '';
+
+    // 2. 加入黑名单
+    if (targetJti) {
+      await this.addToBlacklist(authId, targetJti, blacklistTtl);
     }
 
-    // 清除 Refresh Token，防止用户立即刷新令牌
+    // 3. 清除 Token 缓存
+    await this.cacheService.del(`${CACHE_PREFIXES.USER_TOKENS}${authId}`);
     await this.cacheService.del(`${CACHE_PREFIXES.REFRESH_TOKENS}${authId}`);
+
+    // 4. 清除用户资料缓存（如果有 userId）
+    if (userId) {
+      await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${userId}`);
+    }
+  }
+
+  /**
+   * 将令牌加入黑名单
+   *
+   * @param authId 认证ID
+   * @param jti 令牌ID
+   * @param ttl 过期时间（秒），默认使用 AccessToken 配置时间
+   */
+  private async addToBlacklist(authId: string, jti: string, ttl?: number): Promise<void> {
+    const finalTtl = ttl ?? this.appConfig.jwtOptions.accessTokenTtl;
+    await this.cacheService.set(
+      `${CACHE_PREFIXES.BLACKLIST}${authId}:${jti}`,
+      getCurrentTimestamp(),
+      {
+        ttl: finalTtl,
+      },
+    );
   }
 
   /**

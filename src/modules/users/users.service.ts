@@ -161,22 +161,7 @@ export class UsersService {
    */
   async remove(id: string): Promise<{ message: string }> {
     const user = await this.findById(id);
-
-    await this.databaseService.getDataSource().transaction(async (manager) => {
-      // 删除用户（会自动删除 user_roles 中间表记录）
-      await manager.remove(user);
-
-      // 删除关联的认证信息
-      if (user.auth) {
-        await manager.remove(user.auth);
-      }
-    });
-
-    // 清除缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
-    if (user.auth) {
-      await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${user.auth.id}`);
-    }
+    await this.executeDeleteUsers([user]);
     return { message: '用户删除成功' };
   }
 
@@ -197,10 +182,23 @@ export class UsersService {
       throw BusinessExceptionFactory.notFound('要删除的用户', { ids });
     }
 
+    await this.executeDeleteUsers(users);
+
+    return { message: `成功删除 ${users.length} 个用户` };
+  }
+
+  /**
+   * 执行用户删除逻辑（包含事务和缓存清理）
+   * @param users 用户列表
+   */
+  private async executeDeleteUsers(users: User[]): Promise<void> {
+    if (users.length === 0) return;
+
+    // 1. 数据库事务删除
     await this.databaseService.getDataSource().transaction(async (manager) => {
       const authsToDelete = users.map((user) => user.auth).filter((auth) => !!auth);
 
-      // 删除用户
+      // 删除用户（会自动删除 user_roles 中间表记录）
       await manager.remove(users);
 
       // 删除关联的认证信息
@@ -209,7 +207,7 @@ export class UsersService {
       }
     });
 
-    // 批量清除缓存
+    // 2. 批量清除缓存
     const userCacheKeys = users.map((user) => `${CACHE_PREFIXES.USER_PROFILE}${user.id}`);
     await this.cacheService.delMany(userCacheKeys);
 
@@ -220,7 +218,5 @@ export class UsersService {
     if (authCacheKeys.length > 0) {
       await this.cacheService.delMany(authCacheKeys);
     }
-
-    return { message: `成功删除 ${users.length} 个用户` };
   }
 }
