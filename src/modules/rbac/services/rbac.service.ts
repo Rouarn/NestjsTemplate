@@ -7,7 +7,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { DEFAULT_SYSTEM_ROLES, SystemRoles } from '../constants/system-roles.constant';
-import { CreatePermissionDto } from '../dto/create-permission.dto';
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
@@ -253,14 +252,6 @@ export class RbacService {
     await this.clearCacheForRole(id);
 
     await this.roleRepository.remove(role);
-  }
-
-  /**
-   * 创建权限
-   */
-  async createPermission(dto: CreatePermissionDto): Promise<Permission> {
-    const permission = this.permissionRepository.create(dto);
-    return this.permissionRepository.save(permission);
   }
 
   /**

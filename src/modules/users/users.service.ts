@@ -149,6 +149,7 @@ export class UsersService {
 
     // 清除缓存
     await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
+    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${user.auth.id}`);
 
     return user;
   }
@@ -173,6 +174,9 @@ export class UsersService {
 
     // 清除缓存
     await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
+    if (user.auth) {
+      await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${user.auth.id}`);
+    }
     return { message: '用户删除成功' };
   }
 
@@ -206,8 +210,16 @@ export class UsersService {
     });
 
     // 批量清除缓存
-    const cacheKeys = users.map((user) => `${CACHE_PREFIXES.USER_PROFILE}${user.id}`);
-    await this.cacheService.delMany(cacheKeys);
+    const userCacheKeys = users.map((user) => `${CACHE_PREFIXES.USER_PROFILE}${user.id}`);
+    await this.cacheService.delMany(userCacheKeys);
+
+    const authCacheKeys = users
+      .filter((user) => user.auth)
+      .map((user) => `${CACHE_PREFIXES.AUTH_STATUS}${user.auth.id}`);
+
+    if (authCacheKeys.length > 0) {
+      await this.cacheService.delMany(authCacheKeys);
+    }
 
     return { message: `成功删除 ${users.length} 个用户` };
   }

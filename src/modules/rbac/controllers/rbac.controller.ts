@@ -29,7 +29,6 @@ import { User } from '../../users/entities/user.entity';
 import { RequirePermissions } from '../decorators/permissions.decorator';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
 import { AssignRolesDto } from '../dto/assign-roles.dto';
-import { CreatePermissionDto } from '../dto/create-permission.dto';
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
@@ -42,7 +41,7 @@ import { RbacService, RoleImportResult } from '../services/rbac.service';
  * 提供角色和权限的管理接口，包括：
  * - 角色的创建、查询、更新、删除
  * - 为角色分配权限
- * - 权限的创建和查询
+ * - 权限的查询
  * - 为用户分配角色
  */
 @ApiTags('RBAC 权限管理')
@@ -137,14 +136,6 @@ export class RbacController {
   @RequirePermissions('permission:read')
   findAllPermissions(): Promise<Permission[]> {
     return this.rbacService.findAllPermissions();
-  }
-
-  @ApiOperation({ summary: '创建权限', description: '注册一个新的系统权限' })
-  @ApiResponse({ status: 201, description: '创建成功', type: Permission })
-  @Post('permissions')
-  @RequirePermissions('permission:create')
-  createPermission(@Body() dto: CreatePermissionDto): Promise<Permission> {
-    return this.rbacService.createPermission(dto);
   }
 
   @ApiOperation({ summary: '为用户分配角色', description: '设置指定用户拥有的角色列表' })

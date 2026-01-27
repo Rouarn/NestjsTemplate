@@ -4,6 +4,7 @@ import { BusinessExceptionFactory } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
 import { AuthService } from '@/modules/auth/auth.service';
+import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 import { ICacheService } from '@/shared/cache';
 import { WhitelistAuth } from '@/utils';
 import { CanActivate, ExecutionContext, Inject, Injectable, Logger } from '@nestjs/common';
@@ -11,7 +12,6 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators';
-import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 
 /**
  * JwtAuthGuard（JWT 认证守卫）
@@ -77,7 +77,8 @@ export class JwtAuthGuard implements CanActivate {
       }
 
       // 6. 检查数据库用户状态
-      const authInfo = await this.authService.getAuthById(payload.authId);
+      // 使用轻量级方法仅获取状态信息，避免关联查询 User 和 Role 表
+      const authInfo = await this.authService.getAuthStatusById(payload.authId);
       if (authInfo?.status !== Status.ENABLED) {
         BusinessExceptionFactory.forbidden('账号访问', {
           message: '账号已被禁用或不存在',
@@ -102,18 +103,24 @@ export class JwtAuthGuard implements CanActivate {
         }
       }
 
-      // 8. 注入用户信息到请求对象
+      // 8. 注入用户信息到请求对象（优先使用 JWT 载荷信息）
+      // 注意：由于 authInfo 是轻量级对象，可能不包含 user 和 roles，所以必须依赖 payload 或回退到默认值
+      const roles: SystemRoles[] =
+        payload.roles && payload.roles.length > 0
+          ? (payload.roles as SystemRoles[])
+          : [SystemRoles.USER]; // 如果 payload 没有角色且 authInfo 也没关联角色，则给予默认权限
+
       request['user'] = {
-        authId: authInfo.id,
-        userId: authInfo.user?.id || authInfo.id,
-        username: authInfo.username,
-        roles: authInfo.user?.roles?.map((r) => r.name as SystemRoles) || [SystemRoles.USER],
+        authId: payload.authId,
+        userId: payload.userId,
+        username: payload.username,
+        roles,
         lastLoginAt: authInfo.lastLoginAt,
       };
 
       // 仅在开发环境或调试时打印用户信息
       if (!this.appConfig.isProduction) {
-        this.logger.debug(`认证成功用户: ${authInfo.username}/${authInfo.id}`);
+        this.logger.debug(`认证成功用户: ${payload.username}/${authInfo.id}`);
       }
 
       return true;

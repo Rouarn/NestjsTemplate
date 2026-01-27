@@ -1,8 +1,9 @@
-import { CACHE_PREFIXES, CACHE_TOKENS, JWT_CONSTANTS } from '@/common/constants';
+import { CACHE_PREFIXES, CACHE_TOKENS, CACHE_TTL, JWT_CONSTANTS } from '@/common/constants';
 import { isEnabled } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
+import { DatabaseService } from '@/database';
 import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
 import { ICacheService } from '@/shared/cache';
 import { getCurrentTimestamp, uuid4 } from '@/utils';
@@ -26,7 +27,6 @@ import { ChangePasswordDto } from './dto/password.dto';
 import { AuthCreateUserResponse, RegisterDto } from './dto/register.dto';
 import type { RefreshTokenDto, TokenResponseDto } from './dto/token.dto';
 import { Auth } from './entities/auth.entity';
-import { DatabaseService } from '@/database';
 
 /**
  * 认证服务（AuthService）
@@ -258,14 +258,12 @@ export class AuthService {
       throw BusinessExceptionFactory.notFound('用户数据异常：缺少关联的用户信息');
     }
 
+    const roles = auth.user.roles.map((r) => r.name) || [SystemRoles.USER];
     const payload = {
-      username: auth.username,
       authId: auth.id,
       userId: auth.user.id,
-      roles:
-        auth.user.roles && auth.user.roles.length > 0
-          ? auth.user.roles.map((r) => r.name)
-          : [SystemRoles.USER],
+      username: auth.username,
+      roles,
       jti: uuid4(),
     };
 
@@ -394,17 +392,7 @@ export class AuthService {
       return await this.usersService.findById(auth.userId);
     }
 
-    // 如果没有 userId（理论上不应该发生），降级为直接查询
-    const authWithUser = await this.authRepository.findOne({
-      where: { id: auth.authId },
-      relations: ['user'],
-    });
-
-    if (!authWithUser?.user) {
-      throw BusinessExceptionFactory.notFound('用户信息', { authId: auth.authId });
-    }
-
-    return authWithUser.user;
+    return {} as User;
   }
 
   /**
@@ -451,6 +439,9 @@ export class AuthService {
       passwordChangedAt: new Date(),
     });
 
+    // 清除认证状态缓存
+    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
+
     return { message: '密码修改成功' };
   }
 
@@ -482,8 +473,11 @@ export class AuthService {
       },
     );
 
-    // 清除 Refresh Token
+    // 清除 Token
+    await this.cacheService.del(`${CACHE_PREFIXES.USER_TOKENS}${tokenPayload.authId}`);
     await this.cacheService.del(`${CACHE_PREFIXES.REFRESH_TOKENS}${tokenPayload.authId}`);
+    // 清除用户缓存
+    await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${tokenPayload.userId}`);
 
     return { message: '退出登录成功' };
   }
@@ -545,21 +539,38 @@ export class AuthService {
   }
 
   /**
-   * 根据认证ID获取认证信息
+   * 获取认证状态信息（轻量级，无关联查询）
    *
-   * 从数据库中查询指定ID的认证信息，包含关联的用户信息
+   * 仅查询 Auth 表，用于快速检查账号状态、锁定情况和密码版本。
+   * 优先使用 Redis 缓存。
    *
    * @param authId 认证ID
-   * @returns 认证信息或抛出异常
+   * @returns 认证信息
    */
-  async getAuthById(authId: string): Promise<Auth> {
+  async getAuthStatusById(authId: string): Promise<Auth> {
+    const cacheKey = `${CACHE_PREFIXES.AUTH_STATUS}${authId}`;
+    const cachedAuth = await this.cacheService.get<Auth>(cacheKey);
+    if (cachedAuth) {
+      return cachedAuth;
+    }
+
     const auth = await this.authRepository.findOne({
       where: { id: authId },
-      relations: ['user', 'user.roles'],
+      select: {
+        id: true,
+        status: true,
+        lockedAt: true,
+        loginAttempts: true,
+        passwordChangedAt: true,
+        lastLoginAt: true,
+      },
     });
+
     if (!auth) {
       throw BusinessExceptionFactory.notFound('认证记录', { reason: `认证ID ${authId} 不存在` });
     }
+
+    await this.cacheService.set(cacheKey, auth, { ttl: CACHE_TTL.AUTH_STATUS });
     return auth;
   }
 
@@ -683,6 +694,8 @@ export class AuthService {
    */
   private async incrementLoginAttempts(authId: string): Promise<void> {
     await this.authRepository.increment({ id: authId }, 'loginAttempts', 1);
+    // 清除认证状态缓存
+    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 
   /**
@@ -694,6 +707,8 @@ export class AuthService {
     await this.authRepository.update(authId, {
       lockedAt: new Date(),
     });
+    // 清除认证状态缓存
+    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 
   /**
@@ -706,6 +721,8 @@ export class AuthService {
       loginAttempts: 0,
       lockedAt: undefined,
     });
+    // 清除认证状态缓存
+    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 
   /**
@@ -722,5 +739,7 @@ export class AuthService {
       updateData.lastLoginIp = clientIp;
     }
     await this.authRepository.update(authId, updateData);
+    console.log('更新最后登录时间', updateData);
+    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 }

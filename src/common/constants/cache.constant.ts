@@ -26,6 +26,8 @@ export const CACHE_PREFIXES = {
   USER_TOKENS: 'auth:user_tokens:',
   /** 刷新令牌缓存键前缀 */
   REFRESH_TOKENS: 'auth:refresh_tokens:',
+  /** 认证状态缓存键前缀 */
+  AUTH_STATUS: 'auth:status:',
   /** 用户资料缓存键前缀 */
   USER_PROFILE: 'users:profile:',
   /** RBAC用户权限缓存键前缀 */
@@ -38,4 +40,6 @@ export const CACHE_PREFIXES = {
 export const CACHE_TTL = {
   /** 用户资料缓存过期时间（1小时） */
   USER_PROFILE: 3600,
+  /** 认证状态缓存过期时间（5分钟） */
+  AUTH_STATUS: 300,
 } as const;

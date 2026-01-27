@@ -17,7 +17,7 @@ export interface CurrentUser {
   username: string;
 
   /** 用户角色列表 */
-  roles: SystemRoles[];
+  roles: (SystemRoles | string)[];
 
   /** 最后登录时间 */
   lastLoginAt?: Date;

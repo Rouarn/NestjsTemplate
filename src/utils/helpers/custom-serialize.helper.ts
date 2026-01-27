@@ -27,7 +27,7 @@ type Tagged =
  * 等效于 JSON.stringify，但会对特殊类型打标记
  */
 export function serialize(value: unknown): string {
-  return JSON.stringify(value, replacer as (this: unknown, key: string, value: unknown) => unknown);
+  return JSON.stringify(value, replacer);
 }
 
 /**
@@ -48,44 +48,47 @@ export function deserialize<T>(value: string): T {
  * JSON.stringify 的 replacer
  * 将特殊类型转换为带 __type 的可序列化对象
  */
-function replacer(_: string, value: unknown): unknown {
+function replacer(this: Record<string, unknown>, key: string, value: unknown): unknown {
+  // 获取原始值，因为 Date.toJSON() 和 Buffer.toJSON() 会在 replacer 之前转换值
+  const originalValue = this[key];
+
   // Date
-  if (value instanceof Date) {
+  if (originalValue instanceof Date) {
     return {
       [TYPE_KEY]: 'Date',
-      value: value.toISOString(),
+      value: originalValue.toISOString(),
     } satisfies Tagged;
   }
 
   // BigInt
-  if (typeof value === 'bigint') {
+  if (typeof originalValue === 'bigint') {
     return {
       [TYPE_KEY]: 'BigInt',
-      value: value.toString(),
+      value: originalValue.toString(),
     } satisfies Tagged;
   }
 
   // Map
-  if (value instanceof Map) {
+  if (originalValue instanceof Map) {
     return {
       [TYPE_KEY]: 'Map',
-      value: Array.from(value.entries()) as [unknown, unknown][],
+      value: Array.from(originalValue.entries()) as [unknown, unknown][],
     } satisfies Tagged;
   }
 
   // Set
-  if (value instanceof Set) {
+  if (originalValue instanceof Set) {
     return {
       [TYPE_KEY]: 'Set',
-      value: Array.from(value.values()) as unknown[],
+      value: Array.from(originalValue.values()) as unknown[],
     } satisfies Tagged;
   }
 
   // Buffer (Node only)
-  if (Buffer.isBuffer(value)) {
+  if (Buffer.isBuffer(originalValue)) {
     return {
       [TYPE_KEY]: 'Buffer',
-      value: value.toString('base64'),
+      value: originalValue.toString('base64'),
     } satisfies Tagged;
   }
 

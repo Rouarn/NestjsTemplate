@@ -20,7 +20,6 @@ export enum PermissionAction {
 
   // 权限管理
   PERMISSION_READ = 'permission:read',
-  PERMISSION_CREATE = 'permission:create',
 
   // 认证/系统管理
   AUTH_KICKOUT = 'auth:kickout',
@@ -87,11 +86,6 @@ export const DEFAULT_PERMISSIONS = [
   {
     name: PermissionAction.PERMISSION_READ,
     description: '查看权限列表',
-    group: PERMISSION_GROUPS.PERMISSION,
-  },
-  {
-    name: PermissionAction.PERMISSION_CREATE,
-    description: '创建新权限',
     group: PERMISSION_GROUPS.PERMISSION,
   },
 
