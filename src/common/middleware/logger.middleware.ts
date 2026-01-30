@@ -12,7 +12,7 @@ export class LoggerMiddleware implements NestMiddleware {
     const startTime = Date.now();
 
     res.on('finish', () => {
-      const { statusCode, statusMessage } = res;
+      const { statusCode } = res;
       const responseTime = Date.now() - startTime;
 
       const message = `${method} ${originalUrl} ${statusCode} - ${responseTime}ms`;
@@ -27,13 +27,9 @@ export class LoggerMiddleware implements NestMiddleware {
         responseTime,
       };
 
-      if (statusCode >= 500) {
-        this.logger.error(message, { ...logData, trace: statusMessage });
-      } else if (statusCode >= 400) {
-        this.logger.warn(message, logData);
-      } else {
-        this.logger.info(message, logData);
-      }
+      // 统一使用 info 级别记录访问日志，避免与 ExceptionFilter 的错误日志重复
+      // 错误详情由 HttpExceptionFilter 记录到 error/warn 日志中
+      this.logger.info(message, logData);
     });
 
     next();

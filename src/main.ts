@@ -135,9 +135,6 @@ function configureSwagger(
 }
 
 async function bootstrap(): Promise<void> {
-  // 初始化日志服务
-  // const logger = new Logger('Bootstrap');
-
   try {
     // 创建应用实例
     const app = await NestFactory.create<NestExpressApplication>(AppModule, {
