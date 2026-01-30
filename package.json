@@ -47,7 +47,7 @@
     "ioredis": "^5.9.2",
     "joi": "^18.0.2",
     "multer": "^2.0.2",
-    "mysql2": "^3.16.1",
+    "mysql2": "^3.16.2",
     "passport": "^0.7.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -68,9 +68,9 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.0.0",
-    "@types/node": "^25.0.10",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
-    "@typescript-eslint/parser": "^8.53.1",
+    "@types/node": "^25.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "@vakao-ui/scripts-utils": "0.0.1",
     "cors": "^2.8.6",
     "cross-env": "^10.1.0",
@@ -94,11 +94,11 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js}": [
-      "prettier --check",
+      "prettier --write",
       "eslint"
     ],
     "*.{json,md,css,scss,html,yaml,yml}": [
-      "prettier --check"
+      "prettier --write"
     ]
   }
 }

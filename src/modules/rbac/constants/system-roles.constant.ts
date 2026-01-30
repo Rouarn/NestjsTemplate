@@ -1,5 +1,6 @@
 import type { RegisterDto } from '@/modules/auth/dto/register.dto';
 import type { Role } from '../entities/role.entity';
+import { Status } from '@/common/enums';
 
 /**
  * 系统默认角色
@@ -35,19 +36,19 @@ export const DEFAULT_SYSTEM_ROLES: Partial<Role>[] = [
     name: SystemRoles.ADMIN,
     alias: '超级管理员',
     description: DEFAULT_SYSTEM_ROLES_DESCRIPTION[SystemRoles.ADMIN],
-    isSystem: true,
+    isSystem: Status.ENABLED,
   },
   {
     name: SystemRoles.EDITOR,
     alias: '内容管理员',
     description: DEFAULT_SYSTEM_ROLES_DESCRIPTION[SystemRoles.EDITOR],
-    isSystem: true,
+    isSystem: Status.ENABLED,
   },
   {
     name: SystemRoles.USER,
     alias: '普通用户',
     description: DEFAULT_SYSTEM_ROLES_DESCRIPTION[SystemRoles.USER],
-    isSystem: true,
+    isSystem: Status.ENABLED,
   },
 ];
 

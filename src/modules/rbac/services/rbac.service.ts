@@ -11,12 +11,13 @@ import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
+import { Status } from '@/common/enums';
 
 export interface RoleImportItem {
   name: string;
   alias: string;
   description?: string;
-  isSystem?: boolean | string;
+  isSystem?: Status;
 }
 
 export interface RoleImportResult {
@@ -58,7 +59,7 @@ export class RbacService {
       name: role.name,
       alias: role.alias,
       description: role.description,
-      isSystem: role.isSystem ? '是' : '否',
+      isSystem: role.isSystem === Status.ENABLED ? '是' : '否',
     }));
 
     return this.importExportService.exportToFile(data, {
@@ -103,7 +104,6 @@ export class RbacService {
           throw new Error('角色标识和名称不能为空');
         }
 
-        const isSystem = item.isSystem === '是';
         let role = await this.roleRepository.findOne({ where: { name: item.name } });
 
         if (role) {
@@ -118,8 +118,8 @@ export class RbacService {
           role = this.roleRepository.create({
             name: item.name,
             alias: item.alias,
-            description: item.description,
-            isSystem,
+            description: item.description ?? '',
+            isSystem: Status.DISABLED,
           });
           await this.roleRepository.save(role);
         }
@@ -209,7 +209,7 @@ export class RbacService {
    * 创建角色
    */
   async createRole(dto: CreateRoleDto): Promise<Role> {
-    const role = this.roleRepository.create(dto);
+    const role = this.roleRepository.create({ ...dto, isSystem: Status.DISABLED });
     return this.roleRepository.save(role);
   }
 

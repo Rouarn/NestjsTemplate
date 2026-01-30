@@ -214,12 +214,12 @@ export class AuthService {
 
         throw BusinessExceptionFactory.systemBusy({
           message: `账号已被锁定，请 ${Math.ceil(duration / 60000)} 分钟后再试`,
-          locked: true,
-          durationMinutes: Math.ceil(duration / 60000),
         });
       }
 
-      throw BusinessExceptionFactory.validation('登录密码', { username: loginDto.username });
+      throw BusinessExceptionFactory.validation('', {
+        username: `账号: ${loginDto.username} 登录密码错误`,
+      });
     }
 
     // 登录成功，重置登录失败次数和锁定状态
@@ -702,8 +702,6 @@ export class AuthService {
    */
   private async incrementLoginAttempts(authId: string): Promise<void> {
     await this.authRepository.increment({ id: authId }, 'loginAttempts', 1);
-    // 清除认证状态缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 
   /**

@@ -56,7 +56,11 @@ export class BusinessExceptionFactory {
    * @param details 额外上下文（可选）
    */
   static validation(target: string, details?: unknown): BusinessException {
-    return new BusinessException(`${target} - 验证失败`, HttpStatus.BAD_REQUEST, details);
+    return new BusinessException(
+      `${target} ${target ? '- ' : ''}验证失败`,
+      HttpStatus.BAD_REQUEST,
+      details,
+    );
   }
 
   /**
@@ -65,7 +69,11 @@ export class BusinessExceptionFactory {
    * @param details 额外上下文（可选）
    */
   static invalidParameter(target: string, details?: unknown): BusinessException {
-    return new BusinessException(`${target} - 参数不合法`, HttpStatus.BAD_REQUEST, details);
+    return new BusinessException(
+      `${target} ${target ? '- ' : ''}参数不合法`,
+      HttpStatus.BAD_REQUEST,
+      details,
+    );
   }
 
   /**
@@ -74,7 +82,11 @@ export class BusinessExceptionFactory {
    * @param details 额外上下文（可选）
    */
   static unauthorized(target: string, details?: unknown): BusinessException {
-    return new BusinessException(`${target} - 未授权`, HttpStatus.UNAUTHORIZED, details);
+    return new BusinessException(
+      `${target} ${target ? '- ' : ''}未授权`,
+      HttpStatus.UNAUTHORIZED,
+      details,
+    );
   }
 
   /**
@@ -83,7 +95,11 @@ export class BusinessExceptionFactory {
    * @param details 额外上下文（可选）
    */
   static forbidden(target: string, details?: unknown): BusinessException {
-    return new BusinessException(`${target} - 无权限`, HttpStatus.FORBIDDEN, details);
+    return new BusinessException(
+      `${target} ${target ? '- ' : ''}无权限`,
+      HttpStatus.FORBIDDEN,
+      details,
+    );
   }
 
   /**
@@ -92,7 +108,11 @@ export class BusinessExceptionFactory {
    * @param details 额外上下文（可选）
    */
   static notFound(target: string, details?: unknown): BusinessException {
-    return new BusinessException(`${target} - 不存在`, HttpStatus.NOT_FOUND, details);
+    return new BusinessException(
+      `${target} ${target ? '- ' : ''}不存在`,
+      HttpStatus.NOT_FOUND,
+      details,
+    );
   }
 
   /**
@@ -101,7 +121,11 @@ export class BusinessExceptionFactory {
    * @param details 额外上下文（可选）
    */
   static conflict(target: string, details?: unknown): BusinessException {
-    return new BusinessException(`${target} - 冲突`, HttpStatus.CONFLICT, details);
+    return new BusinessException(
+      `${target} ${target ? '- ' : ''}冲突`,
+      HttpStatus.CONFLICT,
+      details,
+    );
   }
 
   /**
@@ -113,7 +137,7 @@ export class BusinessExceptionFactory {
     message?: string | string[];
     [key: string]: unknown;
   }): BusinessException {
-    const msg = details?.message ?? '系统繁忙';
-    return new BusinessException(msg, HttpStatus.TOO_MANY_REQUESTS, details);
+    const { message = '系统繁忙', ...rest } = details ?? {};
+    return new BusinessException(message, HttpStatus.TOO_MANY_REQUESTS, rest);
   }
 }

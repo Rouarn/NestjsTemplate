@@ -3,6 +3,7 @@ import { User } from '@/modules/users/entities/user.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Permission } from './permission.entity';
+import { Status } from '@/common/enums';
 
 /**
  * 角色实体
@@ -27,9 +28,14 @@ export class Role extends BaseEntity {
   @Column({ nullable: true, comment: '描述' })
   description: string;
 
-  @ApiProperty({ description: '是否为系统内置角色', example: false })
-  @Column({ default: false, comment: '是否为系统内置角色，不可删除', name: 'is_system' })
-  isSystem: boolean;
+  @ApiProperty({ description: '是否为系统内置角色', example: Status.DISABLED })
+  @Column({
+    type: 'tinyint',
+    name: 'is_system',
+    default: Status.DISABLED,
+    comment: '是否为系统内置角色，不可删除',
+  })
+  isSystem: Status;
 
   @ApiProperty({ description: '权限列表', type: () => [Permission], required: false })
   @ManyToMany(() => Permission, (permission) => permission.roles)

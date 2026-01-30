@@ -184,7 +184,7 @@ export class ${PascalPlural}Service {
       }
       return { message: \`成功删除 \${list.length} 条记录\`, };
     }
-    throw BusinessExceptionFactory.invalidParameter('缺少删除参数', { reason: '必须提供要删除的记录 ID 或 ID 列表' });
+    throw BusinessExceptionFactory.invalidParameter('缺少删除参数', { message: '必须提供要删除的记录 ID 或 ID 列表' });
   }
 }
 `;
@@ -257,6 +257,74 @@ export class ${PascalPlural}Module {}
   return { entity, dtoCreate, dtoUpdate, dtoQuery, dtoDelete, service, controller, module };
 }
 
+function updateAppModule(resource) {
+  const root = path.resolve(__dirname, '..');
+  const appModulePath = path.join(root, 'src', 'app.module.ts');
+
+  if (!fs.existsSync(appModulePath)) {
+    log('未找到 app.module.ts，跳过注册', 'warning');
+    return;
+  }
+
+  let content = fs.readFileSync(appModulePath, 'utf8');
+  const PascalPlural = toPascalCase(resource.toLowerCase());
+  const moduleName = `${PascalPlural}Module`;
+  const importPath = `./modules/${resource.toLowerCase()}/${resource.toLowerCase()}.module`;
+  const importLine = `import { ${moduleName} } from '${importPath}';`;
+
+  if (content.includes(moduleName)) {
+    log('模块似乎已在 app.module.ts 中注册，跳过更新', 'warning');
+    return;
+  }
+
+  // 1. 添加模块导入
+  const importRegex = /^import .+ from .+;$/gm;
+  let lastImportIndex = -1;
+  let match;
+  while ((match = importRegex.exec(content)) !== null) {
+    lastImportIndex = match.index + match[0].length;
+  }
+
+  if (lastImportIndex !== -1) {
+    content =
+      content.slice(0, lastImportIndex) + '\n' + importLine + content.slice(lastImportIndex);
+  } else {
+    content = importLine + '\n' + content;
+  }
+
+  // 2. 添加模块到 imports 数组
+  const importsStart = content.indexOf('imports: [');
+  if (importsStart !== -1) {
+    let depth = 0;
+    let foundImports = false;
+    let insertPos = -1;
+
+    for (let i = importsStart; i < content.length; i++) {
+      if (content[i] === '[') {
+        depth++;
+        foundImports = true;
+      } else if (content[i] === ']') {
+        depth--;
+        if (foundImports && depth === 0) {
+          insertPos = i;
+          break;
+        }
+      }
+    }
+
+    if (insertPos !== -1) {
+      const lastNewLine = content.lastIndexOf('\n', insertPos);
+      if (lastNewLine !== -1) {
+        const insertion = `    ${moduleName}, // 自动生成模块\n`;
+        content = content.slice(0, lastNewLine + 1) + insertion + content.slice(lastNewLine + 1);
+      }
+    }
+  }
+
+  fs.writeFileSync(appModulePath, content, 'utf8');
+  log(`更新 app.module.ts: 注册 ${moduleName}`, 'success');
+}
+
 function generate(resource) {
   showBanner('生成基础CRUD资源');
   separator('─', 50);
@@ -267,7 +335,7 @@ function generate(resource) {
   const entitiesDir = path.join(baseDir, 'entities');
 
   if (fs.existsSync(baseDir)) {
-    log('⚠️  目标模块目录已存在，已跳过创建', 'warning');
+    log('目标模块目录已存在，已跳过创建', 'warning');
     return;
   }
 
@@ -285,6 +353,8 @@ function generate(resource) {
   writeFile(path.join(baseDir, `${resource}.controller.ts`), t.controller);
   writeFile(path.join(baseDir, `${resource}.module.ts`), t.module);
 
+  updateAppModule(resource);
+
   showSuccess('🎉 资源生成完成');
 }
 
@@ -299,9 +369,9 @@ function main() {
   rl.question('请输入资源名称 (例如: posts): ', (answer) => {
     const name = String(answer || '').trim();
     if (!name) {
-      log('❌ 资源名称不能为空', 'error');
+      log('资源名称不能为空', 'error');
       rl.close();
-      process.exit(1);
+      return main();
     }
     rl.close();
     generate(name);
@@ -313,7 +383,6 @@ if (require.main === module) {
     main();
   } catch (err) {
     handleError('生成资源失败', err);
-    process.exit(1);
   }
 }
 
