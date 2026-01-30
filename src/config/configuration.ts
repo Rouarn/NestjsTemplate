@@ -141,5 +141,13 @@ export default registerAs('app', (): AppConfig => {
         timeout: 60000,
       },
     },
+
+    // 日志配置
+    logger: {
+      level: getEnvVar('NEST_LOGGER_LEVEL', 'info'),
+      dir: getEnvVar('NEST_LOGGER_DIR', './logs'),
+      maxFiles: getEnvVar('NEST_LOGGER_MAX_FILES', '14d'),
+      maxSize: getEnvVar('NEST_LOGGER_MAX_SIZE', '20m'),
+    },
   };
 });

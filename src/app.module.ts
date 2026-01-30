@@ -16,7 +16,7 @@
  * @author NestJS Template
  * @version 1.0.0
  */
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core/constants';
 import { JwtModule } from '@nestjs/jwt';
 // 应用核心组件
@@ -25,6 +25,7 @@ import { AppService } from './app.service';
 import { HttpExceptionFilter } from './common/filters';
 import { JwtAuthGuard } from './common/guards';
 import { ResponseInterceptor } from './common/interceptors';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { CustomValidationPipe } from './common/pipes';
 import { PermissionsGuard, RolesGuard } from './modules/rbac/guards';
 // 配置模块导入
@@ -33,6 +34,7 @@ import { ConfigModule as AppConfigModule, AppConfigService } from './config';
 import { DatabaseModule } from '@/database';
 import { CacheModule } from '@/shared/cache';
 import { FilesModule } from '@/shared/files/files.module';
+import { LoggerModule } from '@/shared/logger/logger.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { UsersModule } from './modules/users/users.module';
@@ -48,6 +50,7 @@ import { UsersModule } from './modules/users/users.module';
     // 配置模块 - 环境变量和应用配置管理
     // =============================================================================
     AppConfigModule,
+    LoggerModule,
 
     // =============================================================================
     // JWT 认证模块 - 全局 JWT 服务配置
@@ -141,4 +144,8 @@ import { UsersModule } from './modules/users/users.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(LoggerMiddleware).forRoutes({ path: '*path', method: RequestMethod.ALL });
+  }
+}

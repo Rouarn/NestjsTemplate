@@ -11,9 +11,12 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Logger } from 'winston';
 
 @Injectable()
 @Catch(HttpException)
@@ -23,6 +26,8 @@ import type { Request, Response } from 'express';
  * - 自动填充 `code/message/data/success/timestamp/error/stack/url/path`
  */
 export class HttpExceptionFilter implements ExceptionFilter {
+  constructor(@Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger) {}
+
   /**
    * 处理异常并写入响应
    * @param exception 抛出的 `HttpException`
@@ -51,6 +56,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
       // 优先使用自带的 `data` 字段，否则回退为原始对象（便于调试）
       data = maybeData ?? resObj;
+    }
+
+    // 记录错误日志
+    const logData = {
+      statusCode: originalStatus,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      method: request.method,
+      errorName: exception.name,
+      message,
+      stack: exception.stack,
+    };
+
+    if (originalStatus >= 500) {
+      this.logger.error('HttpException', logData);
+    } else {
+      this.logger.warn('HttpException', logData);
     }
 
     // 统一的错误响应体；生产环境不返回堆栈信息

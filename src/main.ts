@@ -7,13 +7,14 @@
  * @version 1.0.0
  */
 
-import { Logger, VersioningType } from '@nestjs/common';
+import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cors from 'cors';
 import * as fs from 'fs';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as path from 'path';
 import { AppModule } from './app.module';
 import { BootstrapLogHelper } from './common/helpers';
@@ -135,7 +136,7 @@ function configureSwagger(
 
 async function bootstrap(): Promise<void> {
   // 初始化日志服务
-  const logger = new Logger('Bootstrap');
+  // const logger = new Logger('Bootstrap');
 
   try {
     // 创建应用实例
@@ -146,7 +147,8 @@ async function bootstrap(): Promise<void> {
     // 获取配置服务
     const appConfig = app.get(AppConfigService);
 
-    app.useLogger(logger);
+    // 配置 Winston 日志服务
+    app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
     // 配置应用组件
     configureApp(app, appConfig);

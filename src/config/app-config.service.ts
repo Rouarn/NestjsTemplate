@@ -280,4 +280,19 @@ export class AppConfigService {
       header: this.configService.get<string>('app.api.header')!,
     };
   }
+
+  // 日志配置
+  get loggerOptions(): {
+    level: string;
+    dir: string;
+    maxFiles: string;
+    maxSize: string;
+  } {
+    return {
+      level: this.configService.get<string>('app.logger.level')!,
+      dir: this.configService.get<string>('app.logger.dir')!,
+      maxFiles: this.configService.get<string>('app.logger.maxFiles')!,
+      maxSize: this.configService.get<string>('app.logger.maxSize')!,
+    };
+  }
 }

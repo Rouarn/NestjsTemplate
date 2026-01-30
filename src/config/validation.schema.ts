@@ -67,4 +67,12 @@ export const validationSchema = Joi.object({
   NEST_DATABASE_ENABLE_TIMESTAMPS: Joi.boolean().default(true),
   NEST_DATABASE_CREATED_AT: Joi.string().default('createdAt'),
   NEST_DATABASE_UPDATE_AT: Joi.string().default('updatedAt'),
+
+  // 日志配置
+  NEST_LOGGER_LEVEL: Joi.string()
+    .valid('error', 'warn', 'info', 'debug', 'verbose')
+    .default('info'),
+  NEST_LOGGER_DIR: Joi.string().default('./logs'),
+  NEST_LOGGER_MAX_FILES: Joi.string().default('14d'),
+  NEST_LOGGER_MAX_SIZE: Joi.string().default('20m'),
 });

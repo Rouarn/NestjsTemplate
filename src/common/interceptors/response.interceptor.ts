@@ -9,9 +9,12 @@ import {
 } from '@/common/interfaces';
 import { formatTimestamp } from '@/utils';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import type { Request } from 'express';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { Logger } from 'winston';
 import { extractRootMessage, isPaginatedPayload, normalizePaginatedData } from './pagination.utils';
 
 /**
@@ -21,7 +24,7 @@ import { extractRootMessage, isPaginatedPayload, normalizePaginatedData } from '
  */
 @Injectable()
 export class ResponseInterceptor<T = unknown> implements NestInterceptor {
-  private readonly logger = new Logger(ResponseInterceptor.name);
+  constructor(@Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger) {}
 
   /**
    * 拦截并格式化响应数据
@@ -35,30 +38,40 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
   ): Observable<IResponse<T> | PaginatedResponse<T>> {
     return next.handle().pipe(
       map((rawData: DeveloperResponse<T> | DeveloperPaginatedResponse<T>) => {
-        const request = context.switchToHttp().getRequest();
+        const request = context.switchToHttp().getRequest<Request>();
         const paginationParams = this.extractPaginationParams(request);
+        let response: IResponse<T> | PaginatedResponse<T>;
 
         // 检查是否为分页响应（通过请求参数中的 current 和 size 判断）
         if (paginationParams && this.isDeveloperPaginatedResponse(rawData)) {
           const { data, message } = this.extractPaginatedDataAndMessage(rawData);
           const paginatedData = this.formatDeveloperPaginatedData<T>(data, paginationParams);
 
-          return {
+          response = {
             code: SUCCESS_RESPONSE.code,
             message: message ?? SUCCESS_RESPONSE.message,
             timestamp: formatTimestamp(),
             data: paginatedData,
           } as PaginatedResponse<T>;
+        } else {
+          // 处理普通响应
+          const { data, message } = this.extractDataAndMessage(rawData);
+          response = {
+            code: SUCCESS_RESPONSE.code,
+            message: message ?? SUCCESS_RESPONSE.message,
+            timestamp: formatTimestamp(),
+            data,
+          } as IResponse<T>;
         }
 
-        // 处理普通响应
-        const { data, message } = this.extractDataAndMessage(rawData);
-        return {
-          code: SUCCESS_RESPONSE.code,
-          message: message ?? SUCCESS_RESPONSE.message,
-          timestamp: formatTimestamp(),
-          data,
-        } as IResponse<T>;
+        // 记录响应日志
+        this.logger.info('ApiResponse', {
+          path: request.url,
+          method: request.method,
+          data: response.data,
+        });
+
+        return response;
       }),
     );
   }

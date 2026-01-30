@@ -127,4 +127,13 @@ export interface AppConfig {
   swagger: SwaggerConfig;
   redis: RedisCacheConfig;
   database: DatabaseConfig;
+  logger: LoggerConfig;
+}
+
+// 日志配置
+export interface LoggerConfig {
+  level: string;
+  dir: string;
+  maxFiles: string;
+  maxSize: string;
 }
