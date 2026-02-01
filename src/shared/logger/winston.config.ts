@@ -2,13 +2,13 @@ import type { AppConfigService } from '@/config';
 import type { WinstonModuleOptions } from 'nest-winston';
 import { utilities as nestWinstonModuleUtilities } from 'nest-winston';
 import * as winston from 'winston';
-import 'winston-daily-rotate-file';
+import DailyRotateFile from 'winston-daily-rotate-file';
 
 export const createWinstonConfig = (configService: AppConfigService): WinstonModuleOptions => {
   const loggerOptions = configService.loggerOptions;
 
-  const createDailyRotateTransport = (level: string, filename: string) => {
-    return new winston.transports.DailyRotateFile({
+  const createDailyRotateTransport = (level: string, filename: string): DailyRotateFile => {
+    return new DailyRotateFile({
       level: level,
       dirname: loggerOptions.dir,
       filename: `${filename}-%DATE%.log`,
