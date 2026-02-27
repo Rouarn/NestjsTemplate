@@ -29,6 +29,6 @@
       "@/utils/*": ["./src/utils/*"]
     }
   },
-  "include": ["src/**/*", "scripts/**/*", "../package.json"],
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist", "src/package.json"]
 }
