@@ -7,6 +7,7 @@ import {
   PaginatedResponse,
   PaginationParams,
 } from '@/common/interfaces';
+import { CurrentUser } from '@/common/interfaces/current-user.interface';
 import { formatTimestamp } from '@/utils';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
@@ -14,8 +15,26 @@ import type { Request } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Logger } from 'winston';
+import type { Logger } from 'winston';
 import { extractRootMessage, isPaginatedPayload, normalizePaginatedData } from './pagination.utils';
+
+// 扩展 Express 的 Request 接口，以包含自定义属性
+interface AppRequest extends Request {
+  user?: CurrentUser;
+  requestId?: string;
+}
+
+// 定义日志数据的接口
+interface LogData {
+  requestId: string;
+  path: string;
+  method: string;
+  data: unknown;
+  user?: {
+    userId: string;
+    username: string;
+  };
+}
 
 /**
  * 响应数据格式化拦截器（ResponseInterceptor）
@@ -38,7 +57,7 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
   ): Observable<IResponse<T> | PaginatedResponse<T>> {
     return next.handle().pipe(
       map((rawData: DeveloperResponse<T> | DeveloperPaginatedResponse<T>) => {
-        const request = context.switchToHttp().getRequest<Request>();
+        const request = context.switchToHttp().getRequest<AppRequest>();
         const paginationParams = this.extractPaginationParams(request);
         let response: IResponse<T> | PaginatedResponse<T>;
 
@@ -64,12 +83,24 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
           } as IResponse<T>;
         }
 
-        // 记录响应日志
-        this.logger.info('ApiResponse', {
+        // 构造日志数据
+        const logData: LogData = {
+          requestId: request.requestId ?? '', // 包含请求 ID，默认空字符串
           path: request.url,
           method: request.method,
           data: response.data,
-        });
+        };
+
+        // 如果存在用户信息，则添加到日志中
+        if (request.user) {
+          logData.user = {
+            userId: request.user.userId,
+            username: request.user.username,
+          };
+        }
+
+        // 记录响应日志
+        this.logger.info('ApiResponse', logData);
 
         return response;
       }),
