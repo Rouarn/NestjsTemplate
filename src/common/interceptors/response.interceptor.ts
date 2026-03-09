@@ -24,18 +24,6 @@ interface AppRequest extends Request {
   requestId?: string;
 }
 
-// 定义日志数据的接口
-interface LogData {
-  requestId: string;
-  path: string;
-  method: string;
-  data: unknown;
-  user?: {
-    userId: string;
-    username: string;
-  };
-}
-
 /**
  * 响应数据格式化拦截器（ResponseInterceptor）
  *
@@ -83,24 +71,27 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
           } as IResponse<T>;
         }
 
-        // 构造日志数据
-        const logData: LogData = {
-          requestId: request.requestId ?? '', // 包含请求 ID，默认空字符串
-          path: request.url,
-          method: request.method,
-          data: response.data,
-        };
-
-        // 如果存在用户信息，则添加到日志中
-        if (request.user) {
-          logData.user = {
-            userId: request.user.userId,
-            username: request.user.username,
-          };
+        this.logger.info('');
+        this.logger.info('┌─ 📤 响应出口 ───────────────────────────────────────────────────┐');
+        this.logger.info(`│ 🆔 请求 ID: ${request.requestId ?? ''}`);
+        this.logger.info(`│ 🔗 请求路由: ${request.url}`);
+        this.logger.info(`│ 🚀 请求方法: ${request.method}`);
+        const dataStr = JSON.stringify(response.data, null, 2);
+        this.logger.info(`│ 📦 响应数据: ${dataStr === '{}' ? '无' : ''}`);
+        if (dataStr !== '{}') {
+          dataStr.split('\n').forEach((line) => {
+            this.logger.info(`│    ${line}`);
+          });
         }
 
-        // 记录响应日志
-        this.logger.info('ApiResponse', logData);
+        if (request.user) {
+          this.logger.info('├─ 👤 用户信息 ───────────────────────────────────────────────────┤');
+          this.logger.info(`│ 🆔 用户 ID: ${request.user.userId}`);
+          this.logger.info(`│ 👤 用户名: ${request.user.username}`);
+        }
+
+        this.logger.info('└─────────────────────────────────────────────────────────────────┘');
+        this.logger.info('');
 
         return response;
       }),

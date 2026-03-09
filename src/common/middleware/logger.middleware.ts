@@ -3,28 +3,12 @@ import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { ParsedQs } from 'qs';
 import type { Logger } from 'winston';
 
 // 扩展 Express 的 Request 接口，以包含自定义属性
 interface AppRequest extends Request {
   user?: CurrentUser;
   requestId?: string;
-}
-
-// 定义日志数据的接口
-interface LogData {
-  requestId: string;
-  method: string;
-  url: string;
-  query: ParsedQs;
-  ip: string;
-  statusCode: number;
-  responseTime: string;
-  user?: {
-    userId: string;
-    username: string;
-  };
 }
 
 @Injectable()
@@ -39,29 +23,40 @@ export class LoggerMiddleware implements NestMiddleware {
     // 将 requestId 附加到请求对象，以便在其他地方（如拦截器）访问
     req.requestId = requestId;
 
+    // 1. 打印 "请求入口" (立即执行)
+    this.logger.info('');
+    this.logger.info('┌─ 🚀 请求入口 ───────────────────────────────────────────────────┐');
+    this.logger.info(`│ 🆔 请求 ID: ${requestId}`);
+    this.logger.info(`│ 🚀 请求方法: ${method}`);
+    this.logger.info(`│ 🔗 请求路由: ${originalUrl}`);
+    const queryStr = JSON.stringify(query, null, 2);
+    this.logger.info(`│ ❓ 请求参数: ${queryStr === '{}' ? '无' : ''}`);
+    if (queryStr !== '{}') {
+      queryStr.split('\n').forEach((line) => {
+        this.logger.info(`│    ${line}`);
+      });
+    }
+    this.logger.info(`│ 💻 客户端 IP: ${ip}`);
+
+    if (req.user) {
+      this.logger.info('├─ 👤 用户信息 ───────────────────────────────────────────────────┤');
+      this.logger.info(`│ 🆔 用户 ID: ${req.user.userId}`);
+      this.logger.info(`│ 👤 用户名: ${req.user.username}`);
+    }
+    this.logger.info('└─────────────────────────────────────────────────────────────────┘');
+
     res.on('finish', () => {
       const { statusCode } = res;
       const responseTime = Date.now() - startTime;
 
-      const logData: LogData = {
-        requestId,
-        method,
-        url: originalUrl,
-        query,
-        ip,
-        statusCode,
-        responseTime: `${responseTime}ms`,
-      };
-
-      // 如果解析出用户信息，则添加到日志中
-      if (req.user) {
-        logData.user = {
-          userId: req.user.userId,
-          username: req.user.username,
-        };
-      }
-
-      this.logger.info('ApiRequest', logData);
+      // 2. 打印“请求完成” (响应结束后执行)
+      this.logger.info('');
+      this.logger.info('┌─ ✅ 请求完成 ───────────────────────────────────────────────────┐');
+      this.logger.info(`│ 🆔 请求 ID: ${requestId}`);
+      this.logger.info(`│ ✅ 状态码: ${statusCode}`);
+      this.logger.info(`│ ⏱️  响应耗时: ${responseTime}ms`);
+      this.logger.info('└─────────────────────────────────────────────────────────────────┘');
+      this.logger.info('');
     });
 
     next();
