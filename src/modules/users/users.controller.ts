@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -88,6 +89,7 @@ export class UsersController {
   @RequirePermissions(PermissionAction.USER_UPDATE)
   @ApiOperation({ summary: '更新用户信息', description: '更新用户资料信息' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123', type: UpdateUserDto })
+  @ApiBody({ type: UpdateUserDto })
   @ApiResponse({
     status: HttpStatus.OK,
     description: '用户信息更新成功',

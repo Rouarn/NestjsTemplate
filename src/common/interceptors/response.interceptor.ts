@@ -77,8 +77,9 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
         this.logger.info(`│ 🔗 请求路由: ${request.url}`);
         this.logger.info(`│ 🚀 请求方法: ${request.method}`);
         const dataStr = JSON.stringify(response.data, null, 2);
-        this.logger.info(`│ 📦 响应数据: ${dataStr === '{}' ? '无' : ''}`);
-        if (dataStr !== '{}') {
+        const hasData = dataStr && dataStr !== '{}';
+        this.logger.info(`│ 📦 响应数据: ${hasData ? '' : '无'}`);
+        if (hasData) {
           dataStr.split('\n').forEach((line) => {
             this.logger.info(`│    ${line}`);
           });

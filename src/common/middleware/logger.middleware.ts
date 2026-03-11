@@ -30,8 +30,9 @@ export class LoggerMiddleware implements NestMiddleware {
     this.logger.info(`│ 🚀 请求方法: ${method}`);
     this.logger.info(`│ 🔗 请求路由: ${originalUrl}`);
     const queryStr = JSON.stringify(query, null, 2);
-    this.logger.info(`│ ❓ 请求参数: ${queryStr === '{}' ? '无' : ''}`);
-    if (queryStr !== '{}') {
+    const hasQuery = queryStr && queryStr !== '{}';
+    this.logger.info(`│ ❓ 请求参数: ${hasQuery ? '' : '无'}`);
+    if (hasQuery) {
       queryStr.split('\n').forEach((line) => {
         this.logger.info(`│    ${line}`);
       });

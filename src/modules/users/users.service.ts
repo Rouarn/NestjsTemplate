@@ -122,7 +122,7 @@ export class UsersService {
 
     Object.assign(user, updateUserDto);
 
-    await this.userRepository.save(user);
+   await this.userRepository.save(user);
     // 清除缓存
     await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
 
