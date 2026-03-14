@@ -1,5 +1,6 @@
+import { BusinessExceptionFactory } from '@/common/exceptions';
+import { AppConfigService, ConfigModule } from '@/config';
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
 import * as multer from 'multer';
 import { FilesController } from './files.controller';
@@ -10,14 +11,34 @@ import { StorageService } from './services/storage.service';
   imports: [
     MulterModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        storage: multer.memoryStorage(),
-        limits: {
-          fileSize: configService.get<number>('app.uploadsMaxSize'), // 10MB
-          files: configService.get<number>('app.uploadsMaxFiles'), // 最多同时上传10个文件
-        },
-      }),
-      inject: [ConfigService],
+      useFactory: async (appConfigService: AppConfigService) => {
+        const { uploadsMaxSize, uploadsMaxFiles, uploadsAllowedTypes } =
+          appConfigService.staticAssetsOptions;
+
+        const allowedTypes = Array.isArray(uploadsAllowedTypes)
+          ? uploadsAllowedTypes
+          : uploadsAllowedTypes.split(',');
+
+        return {
+          storage: multer.memoryStorage(),
+          limits: {
+            fileSize: uploadsMaxSize,
+            files: uploadsMaxFiles,
+          },
+          fileFilter: (_req, file, callback) => {
+            if (!allowedTypes.includes(file.mimetype)) {
+              return callback(
+                BusinessExceptionFactory.invalidParameter(
+                  `不支持的文件类型: ${file.mimetype}。 允许的类型: ${allowedTypes.join(', ')}`,
+                ),
+                false,
+              );
+            }
+            callback(null, true);
+          },
+        };
+      },
+      inject: [AppConfigService],
     }),
   ],
   controllers: [FilesController],

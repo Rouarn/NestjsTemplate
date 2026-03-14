@@ -1,20 +1,22 @@
 import { Public } from '@/common/decorators';
 import {
-  BadRequestException,
   Controller,
   Post,
   UploadedFile,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FileUploadResponseDto } from './dto';
-import { FileValidationPipe, FilesValidationPipe } from './pipes/file-validation.pipe';
+import { BusinessExceptionFactory } from '@/common/exceptions';
+import { FileUploadGuard } from './guards/file-upload.guard';
 import { FilesService } from './services/files.service';
 
 @ApiTags('文件上传')
 @Controller('upload')
+@UseGuards(FileUploadGuard)
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
@@ -44,11 +46,9 @@ export class FilesController {
     description: '请求参数错误',
   })
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(
-    @UploadedFile(FileValidationPipe) file: Express.Multer.File,
-  ): Promise<FileUploadResponseDto> {
+  async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<FileUploadResponseDto> {
     if (!file) {
-      throw new BadRequestException('文件不能为空');
+      throw BusinessExceptionFactory.invalidParameter('文件不能为空');
     }
     return await this.filesService.uploadSingleFile(file);
   }
@@ -83,10 +83,10 @@ export class FilesController {
   })
   @UseInterceptors(FilesInterceptor('files'))
   async uploadMultipleFiles(
-    @UploadedFiles(FilesValidationPipe) files: Express.Multer.File[],
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<FileUploadResponseDto[]> {
     if (!files || files.length === 0) {
-      throw new BadRequestException('文件不能为空');
+      throw BusinessExceptionFactory.invalidParameter('文件不能为空');
     }
     return await this.filesService.uploadMultipleFiles(files);
   }

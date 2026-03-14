@@ -16,8 +16,8 @@
 ```text
 src/shared/files/
 ├── dto/                    # 数据传输对象 (FileUploadResponseDto)
+├── guards/                 # 预检守卫 (FileUploadGuard)
 ├── interfaces/             # 接口定义 (StorageAdapter)
-├── pipes/                  # 校验管道 (FileValidationPipe)
 ├── services/               # 业务逻辑与存储服务
 │   ├── files.service.ts    # 文件处理逻辑 (重命名、路径生成)
 │   └── storage.service.ts  # 本地存储实现
@@ -25,23 +25,19 @@ src/shared/files/
 └── files.module.ts         # 模块配置 (Multer 异步注册)
 ```
 
-## 接口说明
+## 拦截机制
 
-### 1. 单文件上传
+系统采用多层拦截机制，确保非法请求能尽早被拒绝：
 
-- **URL**: `POST /upload`
-- **Content-Type**: `multipart/form-data`
-- **参数**: `file` (Binary)
-- **校验**:
-  - 允许后缀: `.jpg`, `.jpeg`, `.png`, `.pdf`, `.zip`
-  - 最大限制: 10MB
-
-### 2. 多文件上传
-
-- **URL**: `POST /upload/multiple`
-- **Content-Type**: `multipart/form-data`
-- **参数**: `files` (Array of Binary)
-- **校验**: 继承单文件校验逻辑，且受 `app.uploadsMaxFiles` 配置限制。
+1. **第一层：FileUploadGuard (Guard)**
+   - 检查 `Content-Length` 请求头。
+   - 如果声明的大小超过配置限制，直接拒绝（不接收数据体）。
+2. **第二层：Multer fileFilter (Interceptor)**
+   - 在 Multipart 解析过程中检查 `mimetype`。
+   - 如果类型不支持，立即中断传输。
+3. **第三层：Controller 逻辑**
+   - 最终确认文件对象是否存在。
+   - 由 Multer 的 `limits.fileSize` 进行最终的字节级精确校验。
 
 ### 响应示例
 
