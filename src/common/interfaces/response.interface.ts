@@ -28,8 +28,6 @@ export interface SuccessResponse<T = unknown> extends IResponse<T> {
  */
 export interface ErrorResponse extends IResponse {
   success: false;
-  error?: string;
-  stack?: string;
   url?: string;
   path?: string;
 }

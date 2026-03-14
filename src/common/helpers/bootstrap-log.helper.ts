@@ -1,7 +1,6 @@
-import type { AppConfigService } from '@/config';
+import type { AppConfigService, StaticConfig } from '@/config';
 import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { ServeStaticOptions } from '@nestjs/platform-express/interfaces/serve-static-options.interface';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -31,10 +30,7 @@ export class BootstrapLogHelper {
   /**
    * 输出静态资源配置信息
    */
-  static logStaticResourceConfig(
-    staticConfig: { root: string; options: ServeStaticOptions },
-    staticPath: string,
-  ): void {
+  static logStaticResourceConfig(staticConfig: StaticConfig, staticPath: string): void {
     this.logger.log('');
     this.logger.log('╔═══════════════════════════════════════════════════════════════════╗');
     this.logger.log('║                     📁 静态资源配置 📁                            ║');
@@ -43,7 +39,7 @@ export class BootstrapLogHelper {
     this.logger.log('┌─ 📂 配置详情 ───────────────────────────────────────────────────┐');
     this.logger.log(`│ 📂 配置根目录: ${staticConfig.root}`);
     this.logger.log(`│ ⚙️  配置选项:`);
-    const optionsStr = JSON.stringify(staticConfig.options, null, 2);
+    const optionsStr = JSON.stringify(staticConfig, null, 2);
     optionsStr.split('\n').forEach((line) => {
       this.logger.log(`│    ${line}`);
     });
@@ -78,7 +74,7 @@ export class BootstrapLogHelper {
       type: 'uri' | 'header';
       header: string;
     },
-    staticConfig: { root: string; options: ServeStaticOptions },
+    staticConfig: StaticConfig,
   ): Promise<void> {
     const appUrl = await app.getUrl();
     const apiUrl =
@@ -109,7 +105,7 @@ export class BootstrapLogHelper {
       this.logger.log('┌─ 📚 API 文档服务 ' + '─'.repeat(47) + '┐');
       this.logger.log(`│ 🔗 Swagger UI: ${appUrl}${appConfig.swaggerOptions.prefix}`);
       this.logger.log(
-        `│ 📄 JSON 文档: ${appUrl}${staticConfig.options.prefix ?? ''}/${appConfig.swaggerOptions.filename}`,
+        `│ 📄 JSON 文档: ${appUrl}${staticConfig.prefix ?? ''}/${appConfig.swaggerOptions.filename}`,
       );
       this.logger.log('│ 💡 提示: 可导入到 Postman、Apifox 等工具');
       this.logger.log('└' + '─'.repeat(65) + '┘');

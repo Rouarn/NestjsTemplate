@@ -14,12 +14,10 @@ export const validationSchema = Joi.object({
 
   // 静态资源和文件上传统一配置
   NEST_STATIC_ASSETS_DIR: Joi.string().default('./static'), // 静态资源存储路径
-  NEST_STATIC_ASSETS_MAXAGE: Joi.number().default(86400), // 24小时缓存
   NEST_STATIC_ASSETS_PREFIX: Joi.string().default('/static'), // 静态资源访问前缀
 
   // 文件上传配置
   NEST_STATIC_UPLOAD_PATH: Joi.string().default('./uploads'), // 文件上传存储路径
-  NEST_UPLOAD_MAX_SIZE: Joi.number().default(10485760), // 10MB
   NEST_UPLOAD_ALLOWED_TYPES: Joi.string().default(''), // 空字符串表示允许所有类型
   NEST_UPLOAD_MAX_FILES: Joi.number().default(10), // 同时最大上传文件数量
 

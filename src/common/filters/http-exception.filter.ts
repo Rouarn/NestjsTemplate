@@ -1,6 +1,6 @@
 /**
  * 全局 HTTP 异常过滤器
- * 统一将所有 `HttpException` 转换为规范的错误响应体，并在非生产环境附带 `stack`。
+ * 统一将所有 `HttpException` 转换为规范的错误响应体。
  * 建议在 `main.ts` 中通过 `app.useGlobalFilters(new HttpExceptionFilter())` 注册。
  */
 import type { ErrorResponse } from '@/common/interfaces';
@@ -23,7 +23,7 @@ import { Logger } from 'winston';
 /**
  * 捕获并格式化 `HttpException`：
  * - 兼容 `string` 或对象形式的异常响应
- * - 自动填充 `code/message/data/success/timestamp/error/stack/url/path`
+ * - 自动填充 `code/message/data/success/timestamp/url/path`
  */
 export class HttpExceptionFilter implements ExceptionFilter {
   constructor(@Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger) {}
@@ -64,9 +64,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      errorName: exception.name,
       message,
-      stack: exception.stack,
     };
 
     if (originalStatus >= 500) {
@@ -82,8 +80,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       data,
       success: false,
       timestamp: formatTimestamp(),
-      error: exception.name,
-      stack: process.env.NODE_ENV === 'production' ? undefined : exception.stack,
       url: getUrl(request),
       path: request.path,
     };

@@ -35,10 +35,8 @@ export interface AuthSecurityConfig {
 export interface StaticConfig {
   root: string;
   prefix: string;
-  maxAge: number;
-  uploadsPath: string;
+  uploadsAllowedTypes: string;
   uploadsMaxSize: number;
-  uploadsAllowedTypes: string[];
   uploadsMaxFiles: number;
 }
 

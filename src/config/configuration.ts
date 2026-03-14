@@ -73,11 +73,9 @@ export default registerAs('app', (): AppConfig => {
     static: {
       root: getEnvVar('NEST_STATIC_ASSETS_DIR', './static'),
       prefix: getEnvVar('NEST_STATIC_ASSETS_PREFIX', '/static'),
-      maxAge: getEnvVar('NEST_STATIC_ASSETS_MAXAGE', 86400),
-      uploadsPath: getEnvVar('NEST_STATIC_UPLOAD_PATH', './uploads'),
+      uploadsAllowedTypes: getEnvVar('NEST_UPLOAD_ALLOWED_TYPES', ''),
       uploadsMaxSize: getEnvVar('NEST_UPLOAD_MAX_SIZE', 10 * 1024 * 1024), // 10MB
-      uploadsAllowedTypes: getEnvVar('NEST_UPLOAD_ALLOWED_TYPES', [] as string[]),
-      uploadsMaxFiles: getEnvVar('NEST_UPLOAD_MAX_FILES', 10),
+      uploadsMaxFiles: getEnvVar('NEST_UPLOAD_MAX_FILES', 10), // 最多同时上传10个文件
     },
 
     // CORS 跨域配置

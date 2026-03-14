@@ -1,61 +1,57 @@
-import { BusinessExceptionFactory } from '@/common/exceptions';
-import { Injectable, PipeTransform } from '@nestjs/common';
-import { ValidationService } from '../services/validation.service';
+import { AppConfigService } from '@/config';
+import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 
-/**
- * 单文件验证管道（FileValidationPipe）
- *
- * 用于验证上传的单个文件是否符合系统配置的要求。
- */
 @Injectable()
 export class FileValidationPipe implements PipeTransform {
-  /**
-   * 构造函数
-   * @param validationService 文件验证服务
-   */
-  constructor(private readonly validationService: ValidationService) {}
+  constructor(private readonly appConfigService: AppConfigService) {}
 
-  /**
-   * 验证单个文件
-   * @param file 上传的文件对象
-   * @returns 验证通过的文件对象
-   * @throws BadRequestException 验证失败时抛出异常
-   */
   async transform(file: Express.Multer.File): Promise<Express.Multer.File> {
     if (!file) {
-      throw BusinessExceptionFactory.invalidParameter('文件', { reason: '文件不能为空' });
+      throw new BadRequestException('未选择文件');
     }
 
-    await this.validationService.validateFile(file);
+    const { uploadsAllowedTypes, uploadsMaxSize } = this.appConfigService.staticAssetsOptions;
+
+    // 校验文件类型 (MIME type)
+    const allowedTypes = Array.isArray(uploadsAllowedTypes)
+      ? uploadsAllowedTypes
+      : uploadsAllowedTypes.split(',');
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        `不支持的文件类型: ${file.mimetype}。 允许的类型: ${allowedTypes.join(', ')}`,
+      );
+    }
+
+    // 校验文件大小
+    if (file.size > uploadsMaxSize) {
+      throw new BadRequestException(
+        `文件大小超出限制: ${(file.size / 1024 / 1024).toFixed(2)}MB。 最大允许: ${(
+          uploadsMaxSize /
+          1024 /
+          1024
+        ).toFixed(2)}MB`,
+      );
+    }
+
     return file;
   }
 }
 
-/**
- * 多文件验证管道（FilesValidationPipe）
- *
- * 用于验证批量上传的文件是否符合系统配置的要求。
- */
 @Injectable()
 export class FilesValidationPipe implements PipeTransform {
-  /**
-   * 构造函数
-   * @param validationService 文件验证服务
-   */
-  constructor(private readonly validationService: ValidationService) {}
+  constructor(private readonly appConfigService: AppConfigService) {}
 
-  /**
-   * 验证多个文件
-   * @param files 上传的文件数组
-   * @returns 验证通过的文件数组
-   * @throws BadRequestException 验证失败时抛出异常
-   */
   async transform(files: Express.Multer.File[]): Promise<Express.Multer.File[]> {
     if (!files || files.length === 0) {
-      throw BusinessExceptionFactory.invalidParameter('文件列表', { reason: '文件列表不能为空' });
+      throw new BadRequestException('未选择文件');
     }
 
-    await this.validationService.validateFiles(files);
+    const pipe = new FileValidationPipe(this.appConfigService);
+
+    // 对每个文件进行校验
+    await Promise.all(files.map((file) => pipe.transform(file)));
+
     return files;
   }
 }

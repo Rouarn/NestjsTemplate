@@ -1,223 +1,69 @@
-# 文件上传与管理模块 (src/shared/files)
+# 文件上传系统 (src/shared/files)
 
-本模块提供通用的文件上传、存储、访问控制与列表查询功能，开箱即用地支持本地文件系统存储、Multer 内存上传、Swagger 文档集成与权限校验。
+该模块提供了一个通用的文件上传系统，支持单文件和多文件上传，具备文件类型和大小校验功能，并采用存储适配器模式，方便未来扩展不同的存储后端（如 OSS、S3 等）。
 
-## 📖 目录
+## 核心特性
 
-- [功能概览](#功能概览)
-- [系统架构与流程图](#系统架构与流程图)
-- [代码执行流程详解](#代码执行流程详解)
-- [API 接口说明](#api-接口说明)
-- [关键配置](#关键配置)
-- [快速集成](#快速集成)
-- [数据库结构](#数据库结构)
+- **单/多文件上传**：支持通过 `multipart/form-data` 协议上传单个或多个文件。
+- **自动文件名生成**：使用 UUID 生成唯一文件名，防止重名冲突。
+- **目录自动化管理**：按日期（`YYYY/MM`）自动组织存储目录，提高文件检索效率。
+- **存储适配器模式**：通过 `StorageAdapter` 接口抽象存储操作，默认实现为本地文件系统存储。
+- **内置校验**：提供 `FileValidationPipe` 校验文件后缀名和大小。
+- **Swagger 集成**：所有接口均已集成 Swagger 文档，支持在线调试。
 
-## 功能概览
+## 目录结构
 
-- **多模式上传**：支持单文件与批量上传（`multipart/form-data`）。
-- **智能存储**：本地存储，自动按年月路径分组（`YYYY-MM/`），文件名唯一。
-- **安全校验**：
-  - 自动校验文件大小、MIME 类型。
-  - 使用 `file-type` 基于二进制魔数进行真实文件类型检测。
-- **极速秒传（去重）**：基于 SHA-256 哈希去重，同内容文件只存一份，秒级返回。
-- **细粒度权限**：
-  - **公开文件**：任何人可访问。
-  - **私有文件**：仅上传者（所有者）可读写删。
-- **全能检索**：支持分页、类型筛选、关键词搜索、多维度排序。
-- **Swagger 集成**：完整的接口文档与在线调试支持。
-
-## 系统架构与流程图
-
-### 1. 模块架构图
-
-以下展示了各个服务之间的依赖关系与职责划分：
-
-```mermaid
-graph TD
-    Client[客户端] -->|HTTP Request| Controller[FilesController]
-
-    subgraph "Files Module"
-        Controller -->|DTO & Guard| Service[FilesService]
-        Controller -->|Auth| Guard[FileAccessGuard]
-
-        Service -->|校验 & 哈希| Validation[ValidationService]
-        Service -->|物理存取| Storage[StorageService]
-        Service -->|元数据存取| Repo[FileRepository]
-
-        Storage -->|配置读取| Config[ConfigService]
-        StorageFactory[StorageFactoryService] -.->|创建适配器| Storage
-    end
-
-    Storage -->|读写| Disk[本地文件系统]
-    Repo -->|读写| DB[(数据库)]
+```text
+src/shared/files/
+├── dto/                    # 数据传输对象 (FileUploadResponseDto)
+├── interfaces/             # 接口定义 (StorageAdapter)
+├── pipes/                  # 校验管道 (FileValidationPipe)
+├── services/               # 业务逻辑与存储服务
+│   ├── files.service.ts    # 文件处理逻辑 (重命名、路径生成)
+│   └── storage.service.ts  # 本地存储实现
+├── files.controller.ts     # 上传接口定义
+└── files.module.ts         # 模块配置 (Multer 异步注册)
 ```
 
-### 2. 单文件上传流程 (Sequence Diagram)
+## 接口说明
 
-展示了从接收请求到完成存储的完整时序，包含校验与去重逻辑：
+### 1. 单文件上传
 
-```mermaid
-sequenceDiagram
-    participant User as 用户
-    participant Ctrl as FilesController
-    participant Svc as FilesService
-    participant Val as ValidationService
-    participant Store as StorageService
-    participant DB as FileRepository
+- **URL**: `POST /upload`
+- **Content-Type**: `multipart/form-data`
+- **参数**: `file` (Binary)
+- **校验**:
+  - 允许后缀: `.jpg`, `.jpeg`, `.png`, `.pdf`, `.zip`
+  - 最大限制: 10MB
 
-    User->>Ctrl: POST /upload (File, DTO)
-    Ctrl->>Svc: uploadSingleFile(file, dto, userId)
+### 2. 多文件上传
 
-    rect rgb(240, 248, 255)
-        Note over Svc, Val: 1. 预检查
-        Svc->>Val: validateFile(file)
-        Val-->>Svc: OK (大小/类型检查通过)
-    end
+- **URL**: `POST /upload/multiple`
+- **Content-Type**: `multipart/form-data`
+- **参数**: `files` (Array of Binary)
+- **校验**: 继承单文件校验逻辑，且受 `app.uploadsMaxFiles` 配置限制。
 
-    rect rgb(255, 250, 240)
-        Note over Svc, Val: 2. 生成特征
-        Svc->>Val: generateUniqueFilename()
-        Svc->>Val: generateFileHash(buffer)
-        Val-->>Svc: Hash (SHA-256)
-    end
+### 响应示例
 
-    rect rgb(240, 255, 240)
-        Note over Svc, DB: 3. 秒传检测 (去重)
-        Svc->>DB: findOne({ hash })
-        alt 文件已存在
-            DB-->>Svc: ExistingFileEntity
-            Svc-->>Ctrl: 直接返回已有文件信息
-            Ctrl-->>User: 201 Created (秒传成功)
-        else 文件不存在
-            Note over Svc, Store: 4. 物理存储
-            Svc->>Store: upload(file, relativePath)
-            Store->>Disk: 写入磁盘
-            Store-->>Svc: storedPath
-
-            Note over Svc, DB: 5. 保存元数据
-            Svc->>DB: save(NewFileEntity)
-            DB-->>Svc: SavedEntity
-            Svc-->>Ctrl: 返回新文件信息
-            Ctrl-->>User: 201 Created (上传成功)
-        end
-    end
+```json
+{
+  "url": "/static/2024/03/550e8400-e29b-41d4-a716-446655440000.jpg",
+  "completeUrl": "http://localhost:3000/static/2024/03/550e8400-e29b-41d4-a716-446655440000.jpg"
+}
 ```
 
-### 3. 文件下载/预览流程
+## 配置说明
 
-```mermaid
-sequenceDiagram
-    participant User as 用户
-    participant Ctrl as FilesController
-    participant Guard as FileAccessGuard
-    participant Svc as FilesService
-    participant Store as StorageService
+文件上传的相关限制可在 `ConfigService` 中进行配置：
 
-    User->>Ctrl: GET /files/:id/download
+- `app.uploadsMaxSize`: 单个文件的最大字节数（默认 10MB）。
+- `app.uploadsMaxFiles`: 多文件上传时的最大文件数量（默认 10 个）。
+- `staticAssetsOptions.root`: 本地存储的根路径。
+- `staticAssetsOptions.prefix`: 静态资源访问的前缀（如 `/static`）。
 
-    Note over Ctrl, Guard: 1. 权限校验
-    Ctrl->>Guard: canActivate(context)
-    Guard->>Svc: findFileById(id)
-    Svc-->>Guard: FileEntity
-    Guard->>Guard: Check (IsPublic OR Owner)
+## 存储扩展
 
-    alt 无权限
-        Guard-->>User: 403 Forbidden
-    else 验证通过
-        Guard-->>Ctrl: True
-        Ctrl->>Svc: getFileBuffer(id)
-        Svc->>Store: download(path)
-        Store-->>Svc: Buffer
-        Svc-->>Ctrl: { File, Buffer }
-        Ctrl-->>User: File Stream (Response)
-    end
-```
+若需更换存储引擎（例如阿里云 OSS），只需：
 
-## 代码执行流程详解
-
-### 1. 文件上传 (`uploadSingleFile`)
-
-代码位置：`src/shared/files/services/files.service.ts`
-
-1.  **入参接收**：`FilesController` 通过 `@UploadedFile()` 接收 `Multer` 处理后的内存文件对象。
-2.  **安全校验**：
-    - 调用 `ValidationService.validateFile()`。
-    - 检查 `file.size` 是否超过配置限制。
-    - 使用 `file-type` 库检测 `buffer` 的真实 MIME 类型，防止后缀名伪造。
-    - 验证 MIME 类型是否在白名单中。
-3.  **哈希计算**：
-    - 调用 `ValidationService.generateFileHash()` 计算 SHA-256 值。
-4.  **去重逻辑 (Deduplication)**：
-    - 查询数据库是否存在相同 `hash` 的记录。
-    - **如果存在**：直接返回数据库中的记录，**不进行磁盘写入**，实现“秒传”。
-    - **如果不存在**：继续后续步骤。
-5.  **物理存储**：
-    - 生成唯一文件名（时间戳+随机串）。
-    - 规划存储路径（例如 `2024-05/filename.png`）。
-    - 调用 `StorageService.upload()` 将 Buffer 写入磁盘。
-6.  **元数据落库**：
-    - 创建 `File` 实体，记录原始文件名、MIME、大小、存储路径、哈希值、上传者 ID 等。
-    - 保存到数据库。
-
-### 2. 文件访问控制 (`FileAccessGuard`)
-
-代码位置：`src/shared/files/guards/file-access.guard.ts`
-
-该守卫用于 `GET /:id`、`download`、`preview` 等接口。
-
-1.  **获取上下文**：从 Request 中解析 `user` 对象和路径参数 `id`。
-2.  **查询文件**：调用 Service 查询文件元数据。
-3.  **权限判断**：
-    - **Rule 1**: 如果 `file.isPublic === Status.ENABLED`，允许访问。
-    - **Rule 2**: 如果 `file.userId === currentUser.id`，允许访问。
-    - **Rule 3**: 否则，抛出 `403 Forbidden`。
-
-## API 接口说明
-
-| 方法       | 路径                  | 描述         | 关键参数                            |
-| :--------- | :-------------------- | :----------- | :---------------------------------- |
-| **POST**   | `/files/upload`       | 单文件上传   | `file`, `isPublic`, `description`   |
-| **POST**   | `/files/upload/batch` | 批量上传     | `files[]` (Max 10)                  |
-| **GET**    | `/files`              | 文件列表查询 | `current`, `size`, `type`, `search` |
-| **GET**    | `/files/:id`          | 获取详情     | `id` (UUID)                         |
-| **GET**    | `/files/:id/download` | 下载文件     | `Content-Disposition: attachment`   |
-| **GET**    | `/files/:id/preview`  | 预览文件     | `Content-Disposition: inline`       |
-| **DELETE** | `/files/:id`          | 删除文件     | 仅所有者可删                        |
-
-## 关键配置
-
-配置位于 `src/config` 或环境变量中：
-
-- `NEST_UPLOAD_MAX_SIZE`: 单个文件大小限制（默认 10MB）。
-- `NEST_UPLOAD_ALLOWED_TYPES`: 允许的 MIME 类型列表（空则不限制）。
-- `NEST_UPLOAD_MAX_FILES`: 批量上传最大数量（默认 10）。
-- `NEST_STATIC_UPLOAD_PATH`: 物理存储根目录（默认 `./static/uploads`）。
-
-## 快速集成
-
-1. **引入模块**：
-   在 `AppModule` 或其他模块中导入：
-
-   ```typescript
-   @Module({
-     imports: [FilesModule],
-   })
-   export class AppModule {}
-   ```
-
-2. **数据库同步**：
-   确保 TypeORM 实体已同步，将自动创建 `files` 表。
-
-3. **静态资源配置**：
-   确保 `main.ts` 或 `app.module.ts` 中配置了静态资源服务，以便可以通过 URL 直接访问公开文件（如果需要）。
-
-## 数据库结构
-
-主要字段说明 (`entities/file.entity.ts`)：
-
-- `id`: UUID，主键。
-- `hash`: SHA-256，唯一索引（用于去重）。
-- `path`: 磁盘相对路径（如 `2024/01/abc.png`）。
-- `isPublic`: String，是否公开（`Status.ENABLED` 或 `Status.DISABLED`）。
-- `userId`: 上传用户 ID（为空则为匿名上传）。
-- `fileType`: 枚举（IMAGE, VIDEO, DOCUMENT 等），用于快速筛选。
+1. 实现 `StorageAdapter` 接口。
+2. 在 `FilesModule` 中将 `StorageService` 替换为新的实现类，或在 `StorageService` 中注入新的驱动。

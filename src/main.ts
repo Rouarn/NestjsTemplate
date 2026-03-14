@@ -18,12 +18,13 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as path from 'path';
 import { AppModule } from './app.module';
 import { BootstrapLogHelper } from './common/helpers';
+import type { StaticConfig } from './config';
 import { AppConfigService } from './config';
 
 /**
  * 解析静态资源路径
  */
-function resolveStaticPath(staticConfig: { root: string }): string {
+function resolveStaticPath(staticConfig: StaticConfig): string {
   if (path.isAbsolute(staticConfig.root)) {
     return staticConfig.root;
   }
@@ -72,7 +73,7 @@ function configureStaticAssets(app: NestExpressApplication, appConfig: AppConfig
   const staticPath = resolveStaticPath(staticConfig);
 
   BootstrapLogHelper.logStaticResourceConfig(staticConfig, staticPath);
-  app.useStaticAssets(staticPath, staticConfig.options);
+  app.useStaticAssets(staticPath, staticConfig);
 
   return staticPath;
 }
@@ -129,7 +130,7 @@ function configureSwagger(
   BootstrapLogHelper.logApiDocumentSaved(
     apiDocPath,
     appConfig.baseUrl,
-    appConfig.staticAssetsOptions.options.prefix,
+    appConfig.staticAssetsOptions.prefix,
     swaggerOptions.filename,
   );
 }
@@ -148,10 +149,10 @@ async function bootstrap(): Promise<void> {
     app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
     // 配置应用组件
-    configureApp(app, appConfig);
-    configureVersioning(app, appConfig);
-    const staticPath = configureStaticAssets(app, appConfig);
-    configureSwagger(app, staticPath, appConfig);
+    configureApp(app, appConfig); // 配置基础设置
+    configureVersioning(app, appConfig); // 配置版本控制
+    const staticPath = configureStaticAssets(app, appConfig); // 配置静态资源服务
+    configureSwagger(app, staticPath, appConfig); // 配置Swagger API文档
 
     // 启动应用
     const port = appConfig.port;

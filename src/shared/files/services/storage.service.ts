@@ -2,70 +2,70 @@ import { AppConfigService } from '@/config';
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { StorageAdapter, StorageConfig } from '../interfaces';
+import type { StorageAdapter } from '../interfaces';
 
 @Injectable()
 export class StorageService implements StorageAdapter {
   private readonly logger = new Logger(StorageService.name);
-  private readonly config: StorageConfig;
+  private readonly basePath: string;
 
   constructor(private appConfigService: AppConfigService) {
     const staticConfig = this.appConfigService.staticAssetsOptions;
-
-    // 使用静态资源配置中的上传设置
-    this.config = {
-      type: 'local',
-      basePath: staticConfig.options.uploadsPath,
-      maxFileSize: staticConfig.options.uploadsMaxSize,
-      allowedTypes: staticConfig.options.uploadsAllowedTypes,
-    };
+    // 使用配置中的 uploadsPath
+    this.basePath = staticConfig.root;
     void this.ensureUploadDirectory();
   }
 
+  private async ensureUploadDirectory(): Promise<void> {
+    try {
+      await fs.mkdir(this.basePath, { recursive: true });
+    } catch (error) {
+      this.logger.error(`无法创建上传根目录: ${this.basePath}`, error);
+    }
+  }
+
+  /**
+   * 上传文件到本地存储
+   * @param file 文件对象
+   * @param relativePath 相对路径 (如 2024/03/uuid.jpg)
+   * @returns 存储后的相对路径
+   */
   async upload(file: Express.Multer.File, relativePath: string): Promise<string> {
-    const fullPath = path.join(this.config.basePath, relativePath);
+    const fullPath = path.join(this.basePath, relativePath);
     const directory = path.dirname(fullPath);
 
-    this.logger.debug(`📤 开始上传文件: ${file.originalname} -> ${relativePath}`);
-    this.logger.debug(`📂 目标路径: ${fullPath}`);
-
     try {
-      // 确保目录存在
+      // 确保子目录存在 (YYYY/MM)
       await fs.mkdir(directory, { recursive: true });
 
       // 写入文件
       await fs.writeFile(fullPath, file.buffer);
 
-      this.logger.log(
-        `✅ 文件上传成功: ${file.originalname} (${(file.size / 1024).toFixed(2)}KB) -> ${relativePath}`,
-      );
-      return relativePath;
+      return relativePath.replace(/\\/g, '/'); // 统一使用正斜杠
     } catch (error) {
-      this.logger.error(`❌ 文件上传失败: ${file.originalname} -> ${relativePath}`, error);
+      this.logger.error(`文件存储失败: ${file.originalname}`, error);
       throw error;
     }
   }
 
   async download(relativePath: string): Promise<Buffer> {
-    const fullPath = path.join(this.config.basePath, relativePath);
+    const fullPath = path.join(this.basePath, relativePath);
     return await fs.readFile(fullPath);
   }
 
   async delete(relativePath: string): Promise<boolean> {
     try {
-      const fullPath = path.join(this.config.basePath, relativePath);
+      const fullPath = path.join(this.basePath, relativePath);
       await fs.unlink(fullPath);
-      this.logger.log(`🗑️ 文件删除成功: ${relativePath}`);
       return true;
-    } catch (error) {
-      this.logger.error(`❌ 文件删除失败: ${relativePath}`, error);
+    } catch {
       return false;
     }
   }
 
   async exists(relativePath: string): Promise<boolean> {
     try {
-      const fullPath = path.join(this.config.basePath, relativePath);
+      const fullPath = path.join(this.basePath, relativePath);
       await fs.access(fullPath);
       return true;
     } catch {
@@ -73,45 +73,19 @@ export class StorageService implements StorageAdapter {
     }
   }
 
-  getUrl(relativePath: string): string {
-    const baseUrl = this.appConfigService.baseUrl;
-
+  /**
+   * 生成访问 URL
+   * @param relativePath 相对路径
+   * @returns [relativeUrl, completeUrl] 相对路径与完整路径
+   */
+  getUrl(relativePath: string): [string, string] {
     const staticConfig = this.appConfigService.staticAssetsOptions;
+    const baseUrl = this.appConfigService.baseUrl;
+    const cleanRelativePath = relativePath.replace(/\\/g, '/').replace(/^\//, '');
 
-    // 获取 staticConfig.options.uploadsPath 与 staticConfig.options.prefix 不同的部分
-    const uploadsPath = staticConfig.options.uploadsPath;
-    const root = staticConfig.root;
-    const relativeUploadsPath = uploadsPath.replace(root ?? '', '');
-
-    // 使用静态资源URL前缀构建访问地址，添加uploads子目录
-    return `${baseUrl}${staticConfig.options.prefix}${relativeUploadsPath}/${relativePath}`;
-  }
-
-  async getFileStats(relativePath: string): Promise<{ size: number; mtime: Date } | null> {
-    try {
-      const fullPath = path.join(this.config.basePath, relativePath);
-      const stats = await fs.stat(fullPath);
-      return {
-        size: stats.size,
-        mtime: stats.mtime,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  async createDirectory(relativePath: string): Promise<void> {
-    const fullPath = path.join(this.config.basePath, relativePath);
-    await fs.mkdir(fullPath, { recursive: true });
-  }
-
-  private async ensureUploadDirectory(): Promise<void> {
-    try {
-      await fs.access(this.config.basePath);
-      this.logger.debug(`📁 上传目录已存在: ${this.config.basePath}`);
-    } catch {
-      await fs.mkdir(this.config.basePath, { recursive: true });
-      this.logger.log(`📁 创建上传目录: ${this.config.basePath}`);
-    }
+    return [
+      `${staticConfig.prefix}/${cleanRelativePath}`,
+      `${baseUrl}${staticConfig.prefix}/${cleanRelativePath}`,
+    ];
   }
 }
