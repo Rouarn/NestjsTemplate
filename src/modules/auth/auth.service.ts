@@ -256,7 +256,7 @@ export class AuthService {
     // 获取认证信息
     const auth = await this.authRepository.findOne({
       where: { id: authId },
-      relations: ['user', 'user.roles'],
+      relations: { user: { roles: true } },
     });
 
     if (!auth) {
@@ -476,7 +476,7 @@ export class AuthService {
           },
         },
       },
-      relations: ['user', 'user.roles'],
+      relations: { user: { roles: true } },
     });
 
     // 提取并返回用户实体

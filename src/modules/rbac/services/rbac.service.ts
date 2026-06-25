@@ -1,4 +1,5 @@
 import { CACHE_PREFIXES, CACHE_TOKENS } from '@/common/constants';
+import { Status } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { User } from '@/modules/users/entities/user.entity';
 import { ICacheService } from '@/shared/cache/interfaces';
@@ -11,7 +12,6 @@ import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { Permission } from '../entities/permission.entity';
 import { Role } from '../entities/role.entity';
-import { Status } from '@/common/enums';
 
 export interface RoleImportItem {
   name: string;
@@ -166,7 +166,7 @@ export class RbacService {
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['roles', 'roles.permissions'],
+      relations: { roles: { permissions: true } },
     });
 
     if (!user?.roles) {
@@ -192,7 +192,7 @@ export class RbacService {
   async getUserRoles(userId: string): Promise<string[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['roles'],
+      relations: { roles: true },
     });
     if (!user?.roles) return [];
     return user.roles.map((r) => r.name);
@@ -217,7 +217,7 @@ export class RbacService {
    * 查询所有角色（包含已分配的权限）
    */
   async findAllRoles(): Promise<Role[]> {
-    return this.roleRepository.find({ relations: ['permissions'] });
+    return this.roleRepository.find({ relations: { permissions: true } });
   }
 
   /**
@@ -226,7 +226,7 @@ export class RbacService {
   async updateRole(id: string, dto: UpdateRoleDto): Promise<Role> {
     const role = await this.roleRepository.findOne({ where: { id } });
     if (!role) {
-      throw BusinessExceptionFactory.notFound('Role', { id });
+      throw BusinessExceptionFactory.notFound('角色', { id });
     }
     Object.assign(role, dto);
     await this.roleRepository.save(role);
@@ -299,7 +299,7 @@ export class RbacService {
     // 查找所有拥有该角色的用户
     const users = await this.userRepository.find({
       where: { roles: { id: roleId } },
-      select: ['id'],
+      select: { id: true },
     });
 
     if (users.length > 0) {

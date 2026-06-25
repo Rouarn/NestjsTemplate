@@ -10,7 +10,7 @@ export class EnumHelper {
    * @returns 键名数组
    */
   static getKeys<T extends Record<string, string | number>>(enumObject: T): (keyof T)[] {
-    return Object.keys(enumObject).filter((key) => isNaN(Number(key))) as (keyof T)[];
+    return Object.keys(enumObject).filter((key) => isNaN(Number(key)));
   }
 
   /**
@@ -47,7 +47,7 @@ export class EnumHelper {
   ): keyof T | undefined {
     const entries = Object.entries(enumObject);
     const entry = entries.find(([, v]) => v === value);
-    return entry ? (entry[0] as keyof T) : undefined;
+    return entry ? entry[0] : undefined;
   }
 
   /**

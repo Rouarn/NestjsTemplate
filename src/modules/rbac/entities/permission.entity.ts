@@ -12,20 +12,20 @@ import { Role } from './role.entity';
 export class Permission extends BaseEntity {
   @ApiProperty({ description: '权限ID' })
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ApiProperty({ description: '权限标识符', example: 'user:create' })
   @Column({ unique: true, comment: '权限标识符，格式: resource:action' })
-  name: string; // e.g., 'user:create', 'order:read'
+  name!: string; // e.g., 'user:create', 'order:read'
 
   @ApiProperty({ description: '权限描述', required: false })
   @Column({ nullable: true })
-  description: string;
+  description!: string;
 
   @ApiProperty({ description: '资源分组', example: '用户管理' })
   @Column({ comment: '资源分类' })
-  group: string; // e.g., 'User Management'
+  group!: string; // e.g., 'User Management'
 
   @ManyToMany(() => Role, (role) => role.permissions)
-  roles: Role[];
+  roles!: Role[];
 }

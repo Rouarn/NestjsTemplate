@@ -5,11 +5,11 @@ export class FileUploadResponseDto {
     description: '文件访问URL',
     example: '/static/2024/03/uuid.jpg',
   })
-  url: string;
+  url!: string;
 
   @ApiProperty({
     description: '完整文件访问URL',
     example: 'https://example.com/static/2024/03/uuid.jpg',
   })
-  completeUrl: string;
+  completeUrl!: string;
 }

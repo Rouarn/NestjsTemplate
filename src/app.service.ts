@@ -34,7 +34,7 @@ interface PackageJson {
  */
 @Injectable()
 export class AppService implements OnModuleInit {
-  private packageJson: PackageJson;
+  private packageJson!: PackageJson;
 
   async onModuleInit(): Promise<void> {
     // 在模块初始化时读取 package.json 文件，提供更好的错误处理

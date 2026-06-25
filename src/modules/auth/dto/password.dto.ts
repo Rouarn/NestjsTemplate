@@ -28,7 +28,7 @@ export class ChangePasswordDto {
   @IsNotEmpty({ message: '旧密码不能为空' })
   @Length(6, 50, { message: '旧密码长度必须在6-50个字符之间' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  oldPassword: string;
+  oldPassword!: string;
 
   @ApiProperty({
     description: '新密码',
@@ -40,7 +40,7 @@ export class ChangePasswordDto {
   @IsNotEmpty({ message: '新密码不能为空' })
   @Length(6, 50, { message: '新密码长度必须在6-50个字符之间' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  newPassword: string;
+  newPassword!: string;
 
   @ApiProperty({
     description: '确认新密码',
@@ -52,5 +52,5 @@ export class ChangePasswordDto {
   @IsNotEmpty({ message: '确认密码不能为空' })
   @Length(6, 50, { message: '确认密码长度必须在6-50个字符之间' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  confirmPassword: string;
+  confirmPassword!: string;
 }

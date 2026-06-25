@@ -32,7 +32,7 @@ export class CaptchaVerifyDto {
   @IsString({ message: '验证码令牌必须是字符串' })
   @IsNotEmpty({ message: '验证码令牌不能为空' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  token: string;
+  token!: string;
 
   @ApiProperty({
     description: '用户输入的验证码',
@@ -44,7 +44,7 @@ export class CaptchaVerifyDto {
   @IsNotEmpty({ message: '验证码不能为空' })
   @Length(4, 6, { message: '验证码长度必须在4-6个字符之间' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  code: string;
+  code!: string;
 }
 
 /**
@@ -62,13 +62,13 @@ export class CaptchaResponseDto {
     description: '验证码令牌',
     example: 'captcha-token-456',
   })
-  token: string;
+  token!: string;
 
   @ApiProperty({
     description: '验证码图片（Base64编码）',
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
   })
-  image: string;
+  image!: string;
 }
 
 /**
@@ -86,5 +86,5 @@ export class CaptchaVerifyResponseDto {
     description: '验证结果消息',
     example: '验证码验证成功',
   })
-  message: string;
+  message!: string;
 }

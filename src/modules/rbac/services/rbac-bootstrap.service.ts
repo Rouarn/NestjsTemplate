@@ -135,7 +135,7 @@ export class RbacBootstrapService implements OnModuleInit {
     // 1. 系统管理员：拥有所有权限
     const systemAdmin = await this.roleRepository.findOne({
       where: { name: SystemRoles.ADMIN },
-      relations: ['permissions'],
+      relations: { permissions: true },
     });
 
     if (systemAdmin) {
@@ -158,7 +158,7 @@ export class RbacBootstrapService implements OnModuleInit {
     // 实际项目中，这里应该分配 'article:*', 'book:*' 等权限
     const editor = await this.roleRepository.findOne({
       where: { name: SystemRoles.EDITOR },
-      relations: ['permissions'],
+      relations: { permissions: true },
     });
 
     if (editor) {

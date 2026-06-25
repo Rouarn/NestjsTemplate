@@ -9,5 +9,5 @@ export class AssignRolesDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsUUID('all', { each: true })
-  roleIds: string[];
+  roleIds!: string[];
 }

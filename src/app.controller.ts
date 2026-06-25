@@ -28,15 +28,15 @@ import { AppService } from './app.service';
 
 class HelloResponseDto {
   @ApiProperty({ description: '欢迎消息', example: 'Hello NestJS-Template' })
-  message: string;
+  message!: string;
 }
 
 class VersionResponseDto {
   @ApiProperty({ description: '版本号', example: '1.0.0' })
-  version: string;
+  version!: string;
 
   @ApiProperty({ description: '应用名称', example: 'NestJS-Template' })
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: '应用描述', example: 'NestJS 应用模板' })
   description?: string;
@@ -44,10 +44,10 @@ class VersionResponseDto {
 
 class AppInfoResponseDto {
   @ApiProperty({ description: '版本号', example: '1.0.0' })
-  version: string;
+  version!: string;
 
   @ApiProperty({ description: '应用名称', example: 'NestJS-Template' })
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: '应用描述', example: 'NestJS 应用模板' })
   description?: string;

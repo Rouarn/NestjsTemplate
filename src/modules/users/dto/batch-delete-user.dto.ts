@@ -22,5 +22,5 @@ export class BatchDeleteUserDto {
   @IsArray({ message: 'ids必须是数组' })
   @ArrayNotEmpty({ message: 'ids数组不能为空' })
   @IsUUID('4', { each: true, message: '每个ID必须是有效的UUID' })
-  ids: string[];
+  ids!: string[];
 }

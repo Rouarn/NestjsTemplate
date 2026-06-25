@@ -89,7 +89,7 @@ export class UsersService {
 
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['auth', 'roles'],
+      relations: { auth: true, roles: true },
     });
 
     if (!user) {
@@ -175,7 +175,7 @@ export class UsersService {
 
     const users = await this.userRepository.find({
       where: { id: In(ids) },
-      relations: ['auth'],
+      relations: { auth: true },
     });
 
     if (users.length === 0) {

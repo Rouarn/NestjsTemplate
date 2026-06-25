@@ -2,7 +2,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, .npmrc, .nvmrc",
+    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, pnpm-workspace.yaml, .npmrc, .nvmrc",
     "tsconfig.json": "tsconfig.*.json, tsconfig.build.json",
     ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*",
     "README.md": "CHANGELOG.md, CONTRIBUTING.md, LICENSE, AUTHORS, CONTRIBUTORS",

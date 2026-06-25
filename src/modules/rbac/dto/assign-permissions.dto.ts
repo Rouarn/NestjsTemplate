@@ -9,5 +9,5 @@ export class AssignPermissionsDto {
   @IsArray()
   // @ArrayNotEmpty({ message: '权限ID列表不能为空' })
   @IsUUID('all', { each: true, message: '每个权限ID必须是UUID格式' })
-  permissionIds: string[];
+  permissionIds!: string[];
 }

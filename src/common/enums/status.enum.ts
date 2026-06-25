@@ -104,7 +104,7 @@ export function parseStatus(statusStr: string): Status {
   // 尝试按显示名称解析
   const statusEntry = Object.entries(STATUS_LABELS).find(([, label]) => label === statusStr);
   if (statusEntry) {
-    return parseInt(statusEntry[0], 10) as Status;
+    return parseInt(statusEntry[0], 10);
   }
 
   throw new Error(`无法解析状态值: ${statusStr}`);

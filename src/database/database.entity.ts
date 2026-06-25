@@ -28,7 +28,7 @@ export abstract class BaseEntity {
     nullable: false,
     default: () => 'CURRENT_TIMESTAMP(6)',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   /**
    * 更新时间
@@ -46,7 +46,7 @@ export abstract class BaseEntity {
     default: () => 'CURRENT_TIMESTAMP(6)',
     onUpdate: 'CURRENT_TIMESTAMP(6)',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   /**
    * 软删除标识
@@ -61,5 +61,5 @@ export abstract class BaseEntity {
     precision: 6,
     nullable: true,
   })
-  deletedAt: Date | null;
+  deletedAt!: Date | null;
 }

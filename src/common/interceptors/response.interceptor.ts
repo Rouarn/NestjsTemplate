@@ -59,7 +59,7 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
             message: message ?? SUCCESS_RESPONSE.message,
             timestamp: formatTimestamp(),
             data: paginatedData,
-          } as PaginatedResponse<T>;
+          };
         } else {
           // 处理普通响应
           const { data, message } = this.extractDataAndMessage(rawData);

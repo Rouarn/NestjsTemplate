@@ -13,18 +13,18 @@ import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 @Entity('auth', { comment: '认证信息表' })
 export class Auth extends BaseEntity {
   @PrimaryGeneratedColumn('uuid', { comment: '认证ID' })
-  id: string;
+  id!: string;
 
   @Column({ name: 'username', length: 100, unique: true, comment: '用户名' })
-  username: string;
+  username!: string;
 
   @Exclude()
   @Column({ name: 'password', comment: '密码', select: false })
-  password: string;
+  password!: string;
 
   @Exclude()
   @Column({ name: 'salt', length: 100, nullable: true, comment: '盐', select: false })
-  salt: string;
+  salt!: string;
 
   @Column({
     name: 'status',
@@ -32,10 +32,10 @@ export class Auth extends BaseEntity {
     default: Status.ENABLED,
     comment: '认证状态: 0-禁用, 1-启用',
   })
-  status: Status;
+  status!: Status;
 
   @Column({ name: 'last_login_at', type: 'datetime', nullable: true, comment: '最后登录时间' })
-  lastLoginAt: Date;
+  lastLoginAt!: Date;
 
   @Column({
     name: 'last_login_ip',
@@ -47,7 +47,7 @@ export class Auth extends BaseEntity {
   lastLoginIp?: string;
 
   @Column({ name: 'login_attempts', type: 'int', default: 0, comment: '登录失败次数' })
-  loginAttempts: number;
+  loginAttempts!: number;
 
   @Column({ name: 'locked_at', type: 'datetime', nullable: true, comment: '账户锁定时间' })
   lockedAt?: Date;
@@ -62,5 +62,5 @@ export class Auth extends BaseEntity {
 
   // 一对一关联用户信息
   @OneToOne(() => User, (user) => user.auth, { cascade: true, onDelete: 'CASCADE' })
-  user: User;
+  user!: User;
 }

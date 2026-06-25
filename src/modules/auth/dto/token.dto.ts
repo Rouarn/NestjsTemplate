@@ -20,38 +20,38 @@ export class JwtPayloadDto {
     description: '认证ID',
     example: 'auth-uuid-456',
   })
-  authId: string;
+  authId!: string;
 
   @ApiProperty({
     description: '用户ID',
     example: 'user-uuid-123',
   })
-  userId: string;
+  userId!: string;
 
   @ApiProperty({
     description: '用户名',
     example: 'admin',
   })
-  username: string;
+  username!: string;
 
   @ApiProperty({
     description: '用户角色',
     example: ['admin'],
     type: [String],
   })
-  roles: string[];
+  roles!: string[];
 
   @ApiProperty({
     description: '签发时间（Unix时间戳）',
     example: 1640995200,
   })
-  iat: number;
+  iat!: number;
 
   @ApiProperty({
     description: '过期时间（Unix时间戳）',
     example: 1640998800,
   })
-  exp: number;
+  exp!: number;
 }
 
 /**
@@ -73,7 +73,7 @@ export class RefreshTokenDto {
   @IsString({ message: '刷新令牌必须是字符串' })
   @IsNotEmpty({ message: '刷新令牌不能为空' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  refreshToken: string;
+  refreshToken!: string;
 }
 
 /**
@@ -93,7 +93,7 @@ export class TokenResponseDto {
     description: '访问令牌',
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  accessToken: string;
+  accessToken!: string;
 
   @ApiPropertyOptional({
     description: '刷新令牌',
@@ -112,7 +112,7 @@ export class TokenResponseDto {
     description: '访问令牌过期时间（秒）',
     example: 3600,
   })
-  accessTokenTtl: number;
+  accessTokenTtl!: number;
 
   @ApiPropertyOptional({
     description: '刷新令牌过期时间（秒）',

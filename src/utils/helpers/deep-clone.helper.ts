@@ -82,7 +82,7 @@ function deepCloneFallback(
     errorCopy.message = value.message;
     errorCopy.name = value.name;
     errorCopy.stack = value.stack;
-    cache.set(value as object, errorCopy);
+    cache.set(value, errorCopy);
     return errorCopy;
   }
 

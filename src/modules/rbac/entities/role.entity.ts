@@ -1,9 +1,9 @@
+import { Status } from '@/common/enums';
 import { BaseEntity } from '@/database';
 import { User } from '@/modules/users/entities/user.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Permission } from './permission.entity';
-import { Status } from '@/common/enums';
 
 /**
  * 角色实体
@@ -14,19 +14,19 @@ import { Status } from '@/common/enums';
 export class Role extends BaseEntity {
   @ApiProperty({ description: '角色ID' })
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ApiProperty({ description: '角色唯一标识', example: 'admin' })
   @Column({ unique: true, comment: '角色唯一标识，如: admin' })
-  name: string;
+  name!: string;
 
   @ApiProperty({ description: '角色显示名称', example: '管理员' })
   @Column({ comment: '显示名称，如: 管理员' })
-  alias: string;
+  alias!: string;
 
   @ApiProperty({ description: '角色描述', required: false })
   @Column({ nullable: true, comment: '描述' })
-  description: string;
+  description!: string;
 
   @ApiProperty({ description: '是否为系统内置角色', example: Status.DISABLED })
   @Column({
@@ -35,7 +35,7 @@ export class Role extends BaseEntity {
     default: Status.DISABLED,
     comment: '是否为系统内置角色，不可删除',
   })
-  isSystem: Status;
+  isSystem!: Status;
 
   @ApiProperty({ description: '权限列表', type: () => [Permission], required: false })
   @ManyToMany(() => Permission, (permission) => permission.roles)
@@ -44,9 +44,9 @@ export class Role extends BaseEntity {
     joinColumn: { name: 'role_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' },
   })
-  permissions: Permission[];
+  permissions!: Permission[];
 
   @ApiProperty({ description: '用户列表', type: () => [User], required: false })
   @ManyToMany(() => User, (user) => user.roles)
-  users: User[];
+  users!: User[];
 }
