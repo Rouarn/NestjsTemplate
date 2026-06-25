@@ -17,7 +17,7 @@ export const createWinstonConfig = (configService: AppConfigService): WinstonMod
       maxSize: loggerOptions.maxSize,
       maxFiles: loggerOptions.maxFiles,
       format: winston.format.combine(
-        winston.format.timestamp(),
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
         winston.format.json(),
         winston.format((info) => {
           return info.level === level ? info : false;
@@ -40,7 +40,7 @@ export const createWinstonConfig = (configService: AppConfigService): WinstonMod
       new winston.transports.Console({
         level: loggerOptions.level,
         format: winston.format.combine(
-          winston.format.timestamp(),
+          winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
           winston.format.ms(),
           nestWinstonModuleUtilities.format.nestLike('NestApp', {
             colors: true,
