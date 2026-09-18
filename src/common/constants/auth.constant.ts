@@ -5,12 +5,6 @@
  */
 
 /**
- * 白名单路由列表
- * 这些路由无需身份认证即可访问
- */
-export const WHITE_LIST_ROUTES = ['/login/code', '/login/create', '/api-docs/*'] as const;
-
-/**
  * JWT 相关常量
  */
 export const JWT_CONSTANTS = {

@@ -4,9 +4,6 @@
  * 统一导出所有工具函数和辅助类，提供便捷的导入方式。
  */
 
-// 认证工具
-export * from './auth';
-
 // 辅助函数
 export * from './helpers';
 
