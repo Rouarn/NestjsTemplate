@@ -46,4 +46,5 @@ throw new BusinessException('需要付费', HttpStatus.PAYMENT_REQUIRED);
 ## 与验证管道集成
 
 - 全局 `CustomValidationPipe` 在验证失败时抛出 `BusinessException.badRequest('请求参数不合法', { validationErrors })`
+- `validationErrors` 为 `{ field, messages }[]` 结构（`field` 支持 `address.city`、`items[0].name` 形式的嵌套路径），错误文案由各 DTO 装饰器的 `message` 声明
 - 过滤器统一格式化为标准错误响应

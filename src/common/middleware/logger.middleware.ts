@@ -1,4 +1,3 @@
-import { CurrentUser } from '@/common/interfaces/current-user.interface';
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
@@ -7,25 +6,42 @@ import type { Logger } from 'winston';
 
 // 扩展 Express 的 Request 接口，以包含自定义属性
 interface AppRequest extends Request {
-  user?: CurrentUser;
   requestId?: string;
+  startTime?: number;
 }
 
+/** 上游透传请求 ID 的请求头 */
+const TRACE_ID_HEADER = 'x-request-id';
+/** 上游请求 ID 的合法格式：限制字符与长度，防止伪造超长内容或日志注入 */
+const TRACE_ID_PATTERN = /^[\w-]{1,256}$/;
+
+/**
+ * 请求日志中间件
+ *
+ * 职责边界（与其他组件的分工）：
+ * - 本中间件仅负责「请求入口」：解析/生成 requestId、记录开始时间、打印入口日志
+ * - 请求的「出口日志」按结果分别处理：
+ *   - 成功响应由 LoggingInterceptor 记录（状态码、耗时、响应数据、用户信息）
+ *   - 异常响应由 AllExceptionsFilter 记录（含 Guard/Pipe 阶段抛出、不经过拦截器的异常）
+ *
+ * 注意：中间件执行在 Guard 之前，此时 req.user 尚未由 JwtAuthGuard 注入，
+ * 因此用户信息只能在拦截器/过滤器中记录，不能在本中间件读取。
+ */
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
   constructor(@Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger) {}
 
   use(req: AppRequest, res: Response, next: NextFunction): void {
     const { method, originalUrl, query, ip = '' } = req;
-    const startTime = Date.now();
-    const requestId = randomUUID();
 
-    // 将 requestId 附加到请求对象，以便在其他地方（如拦截器）访问
+    // 优先复用上游（网关/负载均衡）透传的请求 ID，缺失或不合法时自行生成，
+    // 保证跨服务链路可串联；并通过 X-Request-Id 响应头原样回传，便于客户端报障关联
+    const requestId = this.resolveRequestId(req);
     req.requestId = requestId;
-    // 回传请求 ID 响应头，便于客户端报障时与服务端日志关联
+    req.startTime = Date.now();
     res.setHeader('X-Request-Id', requestId);
 
-    // 1. 打印 "请求入口" (立即执行)
+    // 打印 "请求入口" (立即执行)
     this.logger.info('');
     this.logger.info('┌─ 🚀 请求入口 ───────────────────────────────────────────────────┐');
     this.logger.info(`│ 🆔 请求 ID: ${requestId}`);
@@ -40,28 +56,22 @@ export class LoggerMiddleware implements NestMiddleware {
       });
     }
     this.logger.info(`│ 💻 客户端 IP: ${ip}`);
-
-    if (req.user) {
-      this.logger.info('├─ 👤 用户信息 ───────────────────────────────────────────────────┤');
-      this.logger.info(`│ 🆔 用户 ID: ${req.user.userId}`);
-      this.logger.info(`│ 👤 用户名: ${req.user.username}`);
-    }
     this.logger.info('└─────────────────────────────────────────────────────────────────┘');
 
-    res.on('finish', () => {
-      const { statusCode } = res;
-      const responseTime = Date.now() - startTime;
-
-      // 2. 打印“请求完成” (响应结束后执行)
-      this.logger.info('');
-      this.logger.info('┌─ ✅ 请求完成 ───────────────────────────────────────────────────┐');
-      this.logger.info(`│ 🆔 请求 ID: ${requestId}`);
-      this.logger.info(`│ ✅ 状态码: ${statusCode}`);
-      this.logger.info(`│ ⏱️  响应耗时: ${responseTime}ms`);
-      this.logger.info('└─────────────────────────────────────────────────────────────────┘');
-      this.logger.info('');
-    });
-
     next();
+  }
+
+  /**
+   * 解析请求 ID：优先采用上游 X-Request-Id，校验不通过时生成新的 UUID
+   * @param req Express 请求对象
+   * @returns 可安全用于日志的请求 ID
+   */
+  private resolveRequestId(req: Request): string {
+    const upstreamId = req.headers[TRACE_ID_HEADER];
+    const candidate = Array.isArray(upstreamId) ? upstreamId[0] : upstreamId;
+    if (candidate && TRACE_ID_PATTERN.test(candidate)) {
+      return candidate;
+    }
+    return randomUUID();
   }
 }

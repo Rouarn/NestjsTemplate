@@ -17,7 +17,7 @@
  * @version 1.0.0
  */
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core/constants';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 // 应用核心组件
 import { AppController } from './app.controller';
@@ -139,6 +139,13 @@ import { UsersModule } from './modules/users/users.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(LoggerMiddleware).forRoutes({ path: '*path', method: RequestMethod.ALL });
+    // 通配符在叠加全局前缀后实际匹配 /api/*path，无法命中前缀根路径本身，
+    // 因此额外绑定空路径以覆盖 GET /api 与 /api/
+    consumer
+      .apply(LoggerMiddleware)
+      .forRoutes(
+        { path: '*path', method: RequestMethod.ALL },
+        { path: '', method: RequestMethod.ALL },
+      );
   }
 }

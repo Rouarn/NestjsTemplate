@@ -24,8 +24,8 @@ import type { Request, Response } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 
-/** 附带 `LoggerMiddleware` 注入的请求追踪 ID 的请求类型 */
-type RequestWithId = Request & { requestId?: string };
+/** 附带 `LoggerMiddleware` 注入的请求追踪信息的请求类型 */
+type RequestWithId = Request & { requestId?: string; startTime?: number };
 
 @Injectable()
 @Catch()
@@ -89,6 +89,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
       data,
     };
+    // 异常出口同样记录耗时（Guard/Pipe 阶段抛出的异常不经过拦截器，只能在此统计）
+    if (typeof request.startTime === 'number') {
+      logData.responseTime = Date.now() - request.startTime;
+    }
     if (!isHttpException) {
       const err = exception as Error;
       logData.errorName = err?.name;
