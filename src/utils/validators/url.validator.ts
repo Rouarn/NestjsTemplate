@@ -51,7 +51,7 @@
  *   isHttpsUrl,
  *   isDomain,
  *   isIpAddress
- * } from '@/utils/validators/url.validator';
+ * } from '#/utils/validators/url.validator.js';
  *
  * // URL验证
  * const validUrl = isUrl('https://example.com'); // true

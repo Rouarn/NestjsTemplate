@@ -1,5 +1,5 @@
-import { GetCurrentUser, Public } from '@/common/decorators';
-import { CurrentUser } from '@/common/interfaces';
+import { GetCurrentUser, Public } from '#/common/decorators/index.js';
+import type { CurrentUser } from '#/common/interfaces/index.js';
 import {
   Body,
   ClassSerializerInterceptor,
@@ -12,14 +12,18 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
-import { User } from '../users/entities/user.entity';
-import { AuthService } from './auth.service';
-import { CaptchaResponseDto, CaptchaVerifyDto, CaptchaVerifyResponseDto } from './dto/captcha.dto';
-import { LoginDto } from './dto/login.dto';
-import { ChangePasswordDto } from './dto/password.dto';
-import { AuthCreateUserResponse, RegisterDto, RegisterResponseDto } from './dto/register.dto';
-import { RefreshTokenDto, TokenResponseDto } from './dto/token.dto';
+import type { Request } from 'express';
+import { User } from '../users/entities/user.entity.js';
+import { AuthService } from './auth.service.js';
+import {
+  CaptchaResponseDto,
+  CaptchaVerifyDto,
+  CaptchaVerifyResponseDto,
+} from './dto/captcha.dto.js';
+import { LoginDto } from './dto/login.dto.js';
+import { ChangePasswordDto } from './dto/password.dto.js';
+import { AuthCreateUserResponse, RegisterDto, RegisterResponseDto } from './dto/register.dto.js';
+import { RefreshTokenDto, TokenResponseDto } from './dto/token.dto.js';
 
 /**
  * 认证控制器

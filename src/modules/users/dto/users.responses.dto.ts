@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { User } from '../entities/user.entity';
+import { User } from '../entities/user.entity.js';
 
 export class UserListResponseDto {
   @ApiProperty({ description: '用户列表', type: [User] })

@@ -1,5 +1,5 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../guards';
+import { JwtAuthGuard } from '../guards/index.js';
 
 /**
  * JWT 认证装饰器（JwtAuth）

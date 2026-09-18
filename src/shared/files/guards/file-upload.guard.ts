@@ -1,5 +1,5 @@
-import { BusinessException } from '@/common/exceptions';
-import { AppConfigService } from '@/config';
+import { BusinessException } from '#/common/exceptions/index.js';
+import { AppConfigService } from '#/config/index.js';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 

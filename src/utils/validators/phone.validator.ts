@@ -34,7 +34,7 @@
  *   isPhone,
  *   isPhoneStrict,
  *   formatPhoneDisplay
- * } from '@/utils/validators/phone.validator';
+ * } from '#/utils/validators/phone.validator.js';
  *
  * // 基础验证
  * const valid = isPhone('13800138000'); // true

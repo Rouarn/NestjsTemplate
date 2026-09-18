@@ -15,7 +15,7 @@
  * @version 1.0.0
  */
 
-import { Public } from '@/common/decorators';
+import { Public } from '#/common/decorators/index.js';
 import { Controller, Get } from '@nestjs/common';
 import {
   ApiOperation,
@@ -24,7 +24,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { AppService } from './app.service';
+import { AppService } from './app.service.js';
 
 class HelloResponseDto {
   @ApiProperty({ description: '欢迎消息', example: 'Hello NestJS-Template' })

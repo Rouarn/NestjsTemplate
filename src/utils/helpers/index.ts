@@ -5,23 +5,23 @@
  */
 
 // 字符串处理
-export * from './capitalize.helper';
+export * from './capitalize.helper.js';
 
 // 数据处理
-export * from './deep-clone.helper';
-export * from './enum.helper';
+export * from './deep-clone.helper.js';
+export * from './enum.helper.js';
 
 // 时间处理
-export * from './date.helper';
-export * from './format-date.helper';
+export * from './date.helper.js';
+export * from './format-date.helper.js';
 
 // 性能优化
-export * from './debounce.helper';
-export * from './throttle.helper';
+export * from './debounce.helper.js';
+export * from './throttle.helper.js';
 
 // 唯一标识
-export * from './uuid.helper';
+export * from './uuid.helper.js';
 
 // 其他
-export * from './custom-serialize.helper';
-export * from './error.helper';
+export * from './custom-serialize.helper.js';
+export * from './error.helper.js';

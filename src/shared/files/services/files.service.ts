@@ -1,26 +1,22 @@
-import { BusinessException } from '@/common/exceptions';
-import { AppConfigService } from '@/config';
+import { BusinessException } from '#/common/exceptions/index.js';
+import { AppConfigService } from '#/config/index.js';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { fileTypeFromFile } from 'file-type';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { FileUploadResponseDto } from '../dto';
-import { STORAGE_ADAPTER, StorageAdapter } from '../interfaces';
+import { FileUploadResponseDto } from '../dto/index.js';
+import type { StorageAdapter } from '../interfaces/index.js';
+import { STORAGE_ADAPTER } from '../interfaces/index.js';
 
 /**
- * file-type@22 是 ESM-only 包，类型仅通过 package.json 的 exports 暴露，
- * 在本项目 CommonJS + node10 模块解析下无法通过 import 引用其类型。
- * Node 自 22.12 起支持 require(ESM)，本项目 engines 要求 Node >= 22.18，
- * 因此这里用 require 加载，并声明实际使用到的最小类型面。
+ * file-type 实际返回类型的最小结构化描述，
+ * 仅声明本服务使用到的字段。
  */
 interface DetectedFileType {
   ext: string;
   mime: string;
 }
-
-const { fileTypeFromFile } = require('file-type') as {
-  fileTypeFromFile: (filePath: string) => Promise<DetectedFileType | undefined>;
-};
 
 @Injectable()
 export class FilesService {

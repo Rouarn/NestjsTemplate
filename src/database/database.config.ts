@@ -1,7 +1,7 @@
-import { AppConfigService } from '@/config';
+import { AppConfigService } from '#/config/index.js';
 import { Injectable } from '@nestjs/common';
 import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from '@nestjs/typeorm';
-import { CustomNamingStrategy } from './naming.strategy';
+import { CustomNamingStrategy } from './naming.strategy.js';
 
 /**
  * 数据库配置服务

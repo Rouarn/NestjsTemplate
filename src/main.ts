@@ -16,10 +16,10 @@ import cors from 'cors';
 import * as fs from 'fs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as path from 'path';
-import { AppModule } from './app.module';
-import { BootstrapLogHelper } from './common/helpers';
-import type { StaticConfig } from './config';
-import { AppConfigService } from './config';
+import { AppModule } from './app.module.js';
+import { BootstrapLogHelper } from './common/helpers/index.js';
+import type { StaticConfig } from './config/index.js';
+import { AppConfigService } from './config/index.js';
 
 /**
  * 解析静态资源路径

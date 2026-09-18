@@ -5,7 +5,7 @@
  */
 
 // 导出配置服务实例
-export { AppConfigService } from './app-config.service';
-export { ConfigModule } from './config.module';
-export * from './types';
-export { validationSchema } from './validation.schema';
+export { AppConfigService } from './app-config.service.js';
+export { ConfigModule } from './config.module.js';
+export * from './types.js';
+export { validationSchema } from './validation.schema.js';

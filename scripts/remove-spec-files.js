@@ -4,9 +4,10 @@
  * 递归删除项目中的所有 .spec.ts 测试文件
  */
 
-const fs = require('fs');
-const path = require('path');
-const { log, showBanner, showSuccess, separator, handleError } = require('@vakao-ui/scripts-utils');
+import { handleError, log, separator, showBanner, showSuccess } from '@vakao-ui/scripts-utils';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * 递归删除所有 .spec.ts 文件
@@ -58,6 +59,7 @@ function removeSpecFiles(dir) {
 // -----------------------------------------------------------------------------
 
 // 获取项目根目录的绝对路径
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
 showBanner('NestJS 测试文件清理工具');

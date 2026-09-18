@@ -1,14 +1,14 @@
-import { Status, toggleStatus } from '@/common/enums';
-import { BusinessException } from '@/common/exceptions';
-import { DatabaseService } from '@/database';
-import { Auth } from '@/modules/auth/entities/auth.entity';
+import { Status, toggleStatus } from '#/common/enums/index.js';
+import { BusinessException } from '#/common/exceptions/index.js';
+import { DatabaseService } from '#/database/index.js';
+import { Auth } from '#/modules/auth/entities/auth.entity.js';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
-import { QueryUserDto } from './dto/query-user.dto';
-import type { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
+import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto.js';
+import { QueryUserDto } from './dto/query-user.dto.js';
+import type { UpdateUserDto } from './dto/update-user.dto.js';
+import { User } from './entities/user.entity.js';
 
 /**
  * 用户服务（UserService）

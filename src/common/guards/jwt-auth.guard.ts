@@ -1,12 +1,12 @@
-import { JWT_CONSTANTS } from '@/common/constants';
-import { BusinessException } from '@/common/exceptions';
-import { CurrentUser } from '@/common/interfaces';
-import { AppConfigService } from '@/config';
+import { JWT_CONSTANTS } from '#/common/constants/index.js';
+import { BusinessException } from '#/common/exceptions/index.js';
+import { CurrentUser } from '#/common/interfaces/index.js';
+import { AppConfigService } from '#/config/index.js';
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
-import { IS_PUBLIC_KEY } from '../decorators';
+import { IS_PUBLIC_KEY } from '../decorators/index.js';
 
 /**
  * JwtAuthGuard（JWT 认证守卫）

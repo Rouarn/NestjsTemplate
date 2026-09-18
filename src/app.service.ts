@@ -13,7 +13,7 @@
  * @author NestJS Template
  * @version 1.0.0
  */
-import { getErrorMessage } from '@/utils';
+import { getErrorMessage } from '#/utils/index.js';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';

@@ -1,8 +1,12 @@
-import type { AppConfigService, StaticConfig } from '@/config';
+import type { AppConfigService, StaticConfig } from '#/config/index.js';
 import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { exec } from 'node:child_process';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export class BootstrapLogHelper {
   private static readonly logger = new Logger('Bootstrap');

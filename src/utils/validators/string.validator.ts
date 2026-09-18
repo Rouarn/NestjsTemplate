@@ -46,7 +46,7 @@
  *   isAlphanumeric,
  *   isUsername,
  *   isStrongPassword
- * } from '@/utils/validators/string.validator';
+ * } from '#/utils/validators/string.validator.js';
  *
  * // 空值检查
  * const empty = isEmpty('   '); // true

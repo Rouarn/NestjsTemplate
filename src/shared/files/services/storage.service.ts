@@ -1,8 +1,8 @@
-import { AppConfigService } from '@/config';
+import { AppConfigService } from '#/config/index.js';
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { StorageAdapter } from '../interfaces';
+import type { StorageAdapter } from '../interfaces/index.js';
 
 @Injectable()
 export class StorageService implements StorageAdapter {

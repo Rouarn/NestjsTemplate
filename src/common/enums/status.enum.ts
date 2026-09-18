@@ -1,4 +1,4 @@
-import { EnumHelper } from '@/utils';
+import { EnumHelper } from '#/utils/index.js';
 
 /**
  * 状态枚举

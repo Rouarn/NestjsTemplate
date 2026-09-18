@@ -1,4 +1,4 @@
-import type { AppConfigService } from '@/config';
+import type { AppConfigService } from '#/config/index.js';
 import type { WinstonModuleOptions } from 'nest-winston';
 import { utilities as nestWinstonModuleUtilities } from 'nest-winston';
 import * as winston from 'winston';

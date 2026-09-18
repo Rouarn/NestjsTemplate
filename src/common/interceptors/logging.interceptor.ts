@@ -1,4 +1,4 @@
-import { CurrentUser } from '@/common/interfaces/current-user.interface';
+import { CurrentUser } from '#/common/interfaces/current-user.interface.js';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Request, Response } from 'express';

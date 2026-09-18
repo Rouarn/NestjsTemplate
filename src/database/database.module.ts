@@ -1,9 +1,9 @@
-import { ConfigModule } from '@/config';
+import { ConfigModule } from '#/config/index.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DatabaseConfigService } from './database.config';
-import { DatabaseService } from './database.service';
-import { DatabaseSubscriber } from './database.subscriber';
+import { DatabaseConfigService } from './database.config.js';
+import { DatabaseService } from './database.service.js';
+import { DatabaseSubscriber } from './database.subscriber.js';
 
 /**
  * 数据库核心模块

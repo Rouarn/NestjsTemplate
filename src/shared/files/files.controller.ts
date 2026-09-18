@@ -1,5 +1,5 @@
-import { Public } from '@/common/decorators';
-import { BusinessException } from '@/common/exceptions';
+import { Public } from '#/common/decorators/index.js';
+import { BusinessException } from '#/common/exceptions/index.js';
 import {
   Controller,
   Post,
@@ -10,9 +10,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { FileUploadResponseDto } from './dto';
-import { FileUploadGuard } from './guards/file-upload.guard';
-import { FilesService } from './services/files.service';
+import { FileUploadResponseDto } from './dto/index.js';
+import { FileUploadGuard } from './guards/file-upload.guard.js';
+import { FilesService } from './services/files.service.js';
 
 @ApiTags('文件上传')
 @Controller('upload')

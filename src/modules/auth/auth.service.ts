@@ -1,10 +1,10 @@
-import { JWT_CONSTANTS } from '@/common/constants';
-import { isEnabled } from '@/common/enums';
-import { BusinessException } from '@/common/exceptions';
-import { CurrentUser } from '@/common/interfaces';
-import { AppConfigService } from '@/config';
-import { DatabaseService } from '@/database';
-import { getCurrentTimestamp } from '@/utils';
+import { JWT_CONSTANTS } from '#/common/constants/index.js';
+import { isEnabled } from '#/common/enums/index.js';
+import { BusinessException } from '#/common/exceptions/index.js';
+import { CurrentUser } from '#/common/interfaces/index.js';
+import { AppConfigService } from '#/config/index.js';
+import { DatabaseService } from '#/database/index.js';
+import { getCurrentTimestamp } from '#/utils/index.js';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,18 +12,18 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as svgCaptcha from 'svg-captcha';
 import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
-import { UsersService } from '../users/users.service';
+import { User } from '../users/entities/user.entity.js';
+import { UsersService } from '../users/users.service.js';
 import type {
   CaptchaResponseDto,
   CaptchaVerifyDto,
   CaptchaVerifyResponseDto,
-} from './dto/captcha.dto';
-import type { LoginDto } from './dto/login.dto';
-import { ChangePasswordDto } from './dto/password.dto';
-import { AuthCreateUserResponse, RegisterDto } from './dto/register.dto';
-import type { RefreshTokenDto, TokenResponseDto } from './dto/token.dto';
-import { Auth } from './entities/auth.entity';
+} from './dto/captcha.dto.js';
+import type { LoginDto } from './dto/login.dto.js';
+import { ChangePasswordDto } from './dto/password.dto.js';
+import { AuthCreateUserResponse, RegisterDto } from './dto/register.dto.js';
+import type { RefreshTokenDto, TokenResponseDto } from './dto/token.dto.js';
+import { Auth } from './entities/auth.entity.js';
 
 /**
  * 认证服务（AuthService）

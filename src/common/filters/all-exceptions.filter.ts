@@ -9,8 +9,8 @@
  * （`APP_FILTER` + `useClass`）。不要使用 `new AllExceptionsFilter()` 手动实例化，
  * 否则依赖注入失效，记录日志时会抛出运行时错误。
  */
-import type { ErrorResponse } from '@/common/interfaces';
-import { formatISOString } from '@/utils';
+import type { ErrorResponse } from '#/common/interfaces/index.js';
+import { formatISOString } from '#/utils/index.js';
 import {
   ArgumentsHost,
   Catch,
@@ -22,7 +22,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { Logger } from 'winston';
+import type { Logger } from 'winston';
 
 /** 附带 `LoggerMiddleware` 注入的请求追踪信息的请求类型 */
 type RequestWithId = Request & { requestId?: string; startTime?: number };

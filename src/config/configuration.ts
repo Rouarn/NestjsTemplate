@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import type { AppConfig, Environment } from './types';
+import type { AppConfig, Environment } from './types.js';
 
 /**
  * 应用配置工厂函数

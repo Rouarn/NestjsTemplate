@@ -5,9 +5,10 @@
   "author": "我与夏季",
   "private": true,
   "license": "UNLICENSED",
+  "type": "module",
   "scripts": {
     "start:dev": "cross-env NODE_ENV=development nest start --watch",
-    "start:prod": "cross-env NODE_ENV=production node dist/main",
+    "start:prod": "cross-env NODE_ENV=production node dist/main.js",
     "build": "nest build",
     "build:prod": "cross-env NODE_ENV=production nest build",
     "lint": "eslint \"src/**/*.ts\" --fix",
@@ -81,14 +82,15 @@
     "prettier": "^3.9.7",
     "source-map-support": "^0.5.21",
     "ts-loader": "^9.6.2",
-    "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=22.18.0",
     "npm": ">=10.9.0",
     "pnpm": ">=10.15.0"
+  },
+  "imports": {
+    "#/*": "./dist/*"
   },
   "lint-staged": {
     "*.{ts,tsx,js}": [

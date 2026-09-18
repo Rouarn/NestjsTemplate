@@ -5,7 +5,7 @@
  */
 
 // 辅助函数
-export * from './helpers';
+export * from './helpers/index.js';
 
 // 验证工具
-export * from './validators';
+export * from './validators/index.js';

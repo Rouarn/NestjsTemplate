@@ -1,5 +1,5 @@
-import type { PaginationParams, SuccessResponse } from '@/common/interfaces';
-import { formatISOString } from '@/utils/helpers/date.helper';
+import type { PaginationParams, SuccessResponse } from '#/common/interfaces/index.js';
+import { formatISOString } from '#/utils/helpers/date.helper.js';
 
 /**
  * 成功响应常量

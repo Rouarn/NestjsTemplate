@@ -1,5 +1,5 @@
-import { BusinessException } from '@/common/exceptions';
-import { AppConfigService, ConfigModule } from '@/config';
+import { BusinessException } from '#/common/exceptions/index.js';
+import { AppConfigService, ConfigModule } from '#/config/index.js';
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import * as fs from 'fs/promises';
@@ -7,10 +7,10 @@ import * as multer from 'multer';
 import * as os from 'os';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { FilesController } from './files.controller';
-import { STORAGE_ADAPTER } from './interfaces';
-import { FilesService } from './services/files.service';
-import { StorageService } from './services/storage.service';
+import { FilesController } from './files.controller.js';
+import { STORAGE_ADAPTER } from './interfaces/index.js';
+import { FilesService } from './services/files.service.js';
+import { StorageService } from './services/storage.service.js';
 
 @Module({
   imports: [

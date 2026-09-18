@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CorsOptions } from 'cors';
-import type { Environment, StaticConfig } from './types';
+import type { Environment, StaticConfig } from './types.js';
 
 /**
  * 应用配置服务

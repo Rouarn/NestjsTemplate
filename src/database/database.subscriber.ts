@@ -1,8 +1,8 @@
-import { AppConfigService } from '@/config';
+import { AppConfigService } from '#/config/index.js';
 import { Injectable } from '@nestjs/common';
 import { EntitySubscriberInterface, EventSubscriber, InsertEvent, UpdateEvent } from 'typeorm';
-import { BaseEntity } from './database.entity';
-import { DatabaseService } from './database.service';
+import { BaseEntity } from './database.entity.js';
+import { DatabaseService } from './database.service.js';
 
 /**
  * 数据库事件订阅者

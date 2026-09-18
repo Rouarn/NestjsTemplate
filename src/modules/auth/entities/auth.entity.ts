@@ -1,6 +1,6 @@
-import { Status } from '@/common/enums';
-import { BaseEntity } from '@/database';
-import { User } from '@/modules/users/entities/user.entity';
+import { Status } from '#/common/enums/index.js';
+import { BaseEntity } from '#/database/index.js';
+import { User } from '#/modules/users/entities/user.entity.js';
 import { Exclude } from 'class-transformer';
 import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 

@@ -39,7 +39,7 @@
  *   isDateFormat,
  *   isPastDate,
  *   isAgeInRange
- * } from '@/utils/validators/date.validator';
+ * } from '#/utils/validators/date.validator.js';
  *
  * // 日期有效性验证
  * const valid = isValidDate('2023-12-25'); // true

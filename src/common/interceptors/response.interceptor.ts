@@ -1,4 +1,4 @@
-import { DEFAULT_PAGINATION, SUCCESS_RESPONSE } from '@/common/constants';
+import { DEFAULT_PAGINATION, SUCCESS_RESPONSE } from '#/common/constants/index.js';
 import {
   DeveloperPaginatedResponse,
   DeveloperResponse,
@@ -6,13 +6,17 @@ import {
   PaginatedData,
   PaginatedResponse,
   PaginationParams,
-} from '@/common/interfaces';
-import { formatISOString } from '@/utils';
+} from '#/common/interfaces/index.js';
+import { formatISOString } from '#/utils/index.js';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { extractRootMessage, isPaginatedPayload, normalizePaginatedData } from './pagination.utils';
+import {
+  extractRootMessage,
+  isPaginatedPayload,
+  normalizePaginatedData,
+} from './pagination.utils.js';
 
 /**
  * 响应数据格式化拦截器（ResponseInterceptor）

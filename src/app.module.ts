@@ -20,21 +20,21 @@ import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/c
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 // 应用核心组件
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AllExceptionsFilter } from './common/filters';
-import { JwtAuthGuard } from './common/guards';
-import { LoggingInterceptor, ResponseInterceptor } from './common/interceptors';
-import { LoggerMiddleware } from './common/middleware/logger.middleware';
-import { CustomValidationPipe } from './common/pipes';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { AllExceptionsFilter } from './common/filters/index.js';
+import { JwtAuthGuard } from './common/guards/index.js';
+import { LoggingInterceptor, ResponseInterceptor } from './common/interceptors/index.js';
+import { LoggerMiddleware } from './common/middleware/logger.middleware.js';
+import { CustomValidationPipe } from './common/pipes/index.js';
 // 配置模块导入
-import { ConfigModule as AppConfigModule, AppConfigService } from './config';
+import { ConfigModule as AppConfigModule, AppConfigService } from './config/index.js';
 // 业务模块导入
-import { DatabaseModule } from '@/database';
-import { FilesModule } from '@/shared/files/files.module';
-import { LoggerModule } from '@/shared/logger/logger.module';
-import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
+import { DatabaseModule } from '#/database/index.js';
+import { FilesModule } from '#/shared/files/files.module.js';
+import { LoggerModule } from '#/shared/logger/logger.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 /**
  * 应用根模块配置

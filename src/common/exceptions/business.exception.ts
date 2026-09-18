@@ -13,8 +13,8 @@
  * ```
  * 未覆盖的状态码可直接 `new BusinessException(message, HttpStatus.XXX)` 兜底。
  */
-import type { ErrorResponse } from '@/common/interfaces';
-import { formatISOString } from '@/utils';
+import type { ErrorResponse } from '#/common/interfaces/index.js';
+import { formatISOString } from '#/utils/index.js';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
 /** 错误上下文类型：随响应体 `data` 字段返回，用于调试信息或补充提示 */

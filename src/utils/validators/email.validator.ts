@@ -28,7 +28,7 @@
  *   isEmail,
  *   isEmailStrict,
  *   isCorporateEmail
- * } from '@/utils/validators/email.validator';
+ * } from '#/utils/validators/email.validator.js';
  *
  * // 基础验证
  * const valid = isEmail('user@example.com'); // true

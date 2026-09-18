@@ -45,7 +45,7 @@
  *   extractBirthFromIdCard,
  *   extractGenderFromIdCard,
  *   formatIdCardDisplay
- * } from '@/utils/validators/id-card.validator';
+ * } from '#/utils/validators/id-card.validator.js';
  *
  * // 基础格式验证
  * const valid = isIdCard('110101199001011234'); // true

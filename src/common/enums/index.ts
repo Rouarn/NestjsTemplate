@@ -4,5 +4,5 @@
  */
 
 // 导出枚举类型
-export * from './gender.enum';
-export * from './status.enum';
+export * from './gender.enum.js';
+export * from './status.enum.js';

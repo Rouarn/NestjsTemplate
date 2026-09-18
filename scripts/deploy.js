@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const { log, showBanner, showSuccess, separator, handleError } = require('@vakao-ui/scripts-utils');
+import { handleError, log, separator, showBanner, showSuccess } from '@vakao-ui/scripts-utils';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * 部署脚本 - 准备生产环境部署文件
  */
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const distPath = path.join(projectRoot, 'dist');
 const deployPath = path.join(projectRoot, 'deploy');
@@ -90,6 +92,8 @@ try {
     author: originalPackageJson.author,
     private: originalPackageJson.private,
     license: originalPackageJson.license,
+    type: originalPackageJson.type,
+    imports: originalPackageJson.imports,
     scripts: {
       start: 'cross-env NODE_ENV=production node dist/main.js',
       'start:simple': 'node dist/main.js',
@@ -160,7 +164,7 @@ process.env.NODE_ENV = 'production';
 
 // 启动应用
 console.log('正在启动 NestJS 应用...');
-require('./dist/main.js');
+await import('./dist/main.js');
 `;
 
   // 写入宝塔面板专用启动文件

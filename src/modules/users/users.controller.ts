@@ -18,13 +18,13 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
-import { QueryUserDto } from './dto/query-user.dto';
-import { ToggleUserStatusDto } from './dto/toggle-user-status.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UserListResponseDto } from './dto/users.responses.dto';
-import { User } from './entities/user.entity';
-import { UsersService } from './users.service';
+import { BatchDeleteUserDto } from './dto/batch-delete-user.dto.js';
+import { QueryUserDto } from './dto/query-user.dto.js';
+import { ToggleUserStatusDto } from './dto/toggle-user-status.dto.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
+import { UserListResponseDto } from './dto/users.responses.dto.js';
+import { User } from './entities/user.entity.js';
+import { UsersService } from './users.service.js';
 
 /**
  * 用户控制器（UsersController）

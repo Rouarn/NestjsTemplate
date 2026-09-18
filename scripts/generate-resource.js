@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
-const { log, showBanner, showSuccess, separator, handleError } = require('@vakao-ui/scripts-utils');
-const readline = require('readline');
+import { handleError, log, separator, showBanner, showSuccess } from '@vakao-ui/scripts-utils';
+import fs from 'node:fs';
+import path from 'node:path';
+import readline from 'node:readline';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function toPascalCase(str) {
   return str
@@ -34,7 +37,7 @@ function genTemplates(resourceRaw) {
   const PascalSingular = toPascalCase(singular);
 
   const entity = `import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { BaseEntity } from '@/database';
+import { BaseEntity } from '#/database/index.js';
 
 @Entity('${resource}')
 export class ${PascalSingular} extends BaseEntity {
@@ -58,7 +61,7 @@ export class Create${PascalSingular}Dto {
 `;
 
   const dtoUpdate = `import { PartialType } from '@nestjs/swagger';
-import { Create${PascalSingular}Dto } from './create-${singular}.dto';
+import { Create${PascalSingular}Dto } from './create-${singular}.dto.js';
 
 export class Update${PascalSingular}Dto extends PartialType(Create${PascalSingular}Dto) {}
 `;
@@ -104,11 +107,11 @@ export class Delete${PascalSingular}Dto {
   const service = `import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { BusinessException } from '@/common/exceptions';
-import type { Create${PascalSingular}Dto } from './dto/create-${singular}.dto';
-import type { Update${PascalSingular}Dto } from './dto/update-${singular}.dto';
-import type { Delete${PascalSingular}Dto } from './dto/delete-${singular}.dto';
-import { ${PascalSingular} } from './entities/${singular}.entity';
+import { BusinessException } from '#/common/exceptions/index.js';
+import type { Create${PascalSingular}Dto } from './dto/create-${singular}.dto.js';
+import type { Update${PascalSingular}Dto } from './dto/update-${singular}.dto.js';
+import type { Delete${PascalSingular}Dto } from './dto/delete-${singular}.dto.js';
+import { ${PascalSingular} } from './entities/${singular}.entity.js';
 
 @Injectable()
 export class ${PascalPlural}Service {
@@ -168,12 +171,12 @@ export class ${PascalPlural}Service {
 
   const controller = `import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ${PascalPlural}Service } from './${resource}.service';
-import { ${PascalSingular} } from './entities/${singular}.entity';
-import { Create${PascalSingular}Dto } from './dto/create-${singular}.dto';
-import { Update${PascalSingular}Dto } from './dto/update-${singular}.dto';
-import { Query${PascalSingular}Dto } from './dto/query-${singular}.dto';
-import { Delete${PascalSingular}Dto } from './dto/delete-${singular}.dto';
+import { ${PascalPlural}Service } from './${resource}.service.js';
+import { ${PascalSingular} } from './entities/${singular}.entity.js';
+import { Create${PascalSingular}Dto } from './dto/create-${singular}.dto.js';
+import { Update${PascalSingular}Dto } from './dto/update-${singular}.dto.js';
+import { Query${PascalSingular}Dto } from './dto/query-${singular}.dto.js';
+import { Delete${PascalSingular}Dto } from './dto/delete-${singular}.dto.js';
 
 @ApiTags('${PascalPlural}管理')
 @ApiBearerAuth()
@@ -227,9 +230,9 @@ export class ${PascalPlural}Controller {
 
   const module = `import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ${PascalPlural}Controller } from './${resource}.controller';
-import { ${PascalPlural}Service } from './${resource}.service';
-import { ${PascalSingular} } from './entities/${singular}.entity';
+import { ${PascalPlural}Controller } from './${resource}.controller.js';
+import { ${PascalPlural}Service } from './${resource}.service.js';
+import { ${PascalSingular} } from './entities/${singular}.entity.js';
 
 @Module({
   imports: [TypeOrmModule.forFeature([${PascalSingular}])],
@@ -255,7 +258,7 @@ function updateAppModule(resource) {
   let content = fs.readFileSync(appModulePath, 'utf8');
   const PascalPlural = toPascalCase(resource.toLowerCase());
   const moduleName = `${PascalPlural}Module`;
-  const importPath = `./modules/${resource.toLowerCase()}/${resource.toLowerCase()}.module`;
+  const importPath = `./modules/${resource.toLowerCase()}/${resource.toLowerCase()}.module.js`;
   const importLine = `import { ${moduleName} } from '${importPath}';`;
 
   if (content.includes(moduleName)) {
@@ -364,7 +367,10 @@ function main() {
   });
 }
 
-if (require.main === module) {
+const isMainModule =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isMainModule) {
   try {
     main();
   } catch (err) {
@@ -372,4 +378,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { generate };
+export { generate };

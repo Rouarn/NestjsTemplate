@@ -1,10 +1,10 @@
-import { DatabaseModule } from '@/database';
-import { Auth } from '@/modules/auth/entities/auth.entity';
+import { DatabaseModule } from '#/database/index.js';
+import { Auth } from '#/modules/auth/entities/auth.entity.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
-import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
+import { User } from './entities/user.entity.js';
+import { UsersController } from './users.controller.js';
+import { UsersService } from './users.service.js';
 
 /**
  * 用户模块（UsersModule）

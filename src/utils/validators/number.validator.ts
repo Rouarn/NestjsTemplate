@@ -40,7 +40,7 @@
  *   isInRange,
  *   isPercentage,
  *   isMoney
- * } from '@/utils/validators/number.validator';
+ * } from '#/utils/validators/number.validator.js';
  *
  * // 整数验证
  * const valid = isInteger('123'); // true

@@ -1,6 +1,6 @@
-import { Gender } from '@/common/enums';
-import { BaseEntity } from '@/database';
-import { Auth } from '@/modules/auth/entities/auth.entity';
+import { Gender } from '#/common/enums/index.js';
+import { BaseEntity } from '#/database/index.js';
+import type { Auth } from '#/modules/auth/entities/auth.entity.js';
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
@@ -48,7 +48,9 @@ export class User extends BaseEntity {
   profession!: string;
 
   // 一对一关联认证信息
-  @OneToOne(() => Auth, (auth) => auth.user)
+  // 与 Auth 实体存在双向循环引用：此处使用字符串目标，
+  // 避免 ESM 实时绑定在装饰器元数据求值阶段触发 TDZ 错误
+  @OneToOne('Auth', 'user')
   @JoinColumn({ name: 'auth_id' })
   auth!: Auth;
 }
