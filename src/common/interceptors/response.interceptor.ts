@@ -113,12 +113,30 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
   /**
    * 类型守卫：识别包装数据格式
    * 结构：{ data: T, message?: string }
-   * 说明：优先级最高，命中则直接返回其中的 data 与 message
+   *
+   * 判定规则（严格键集合，避免 data 字段碰撞）：
+   * - 必须为非空对象
+   * - 必须包含自有属性 data
+   * - 除 data 外，只允许出现 message（且 message 必须为字符串）
+   * - 若存在 data、message 之外的其它键，则视为普通业务对象，不做拆包
+   *
+   * 这样普通业务对象即使含有 data 字段（如 { data: 'base64', filename: 'a.png' }），
+   * 也不会被误判为包装格式。
    */
   private isWrappedData<T>(value: unknown): value is { data: T; message?: string } {
-    return (
-      this.isObject(value) && 'data' in value && Object.prototype.hasOwnProperty.call(value, 'data')
-    );
+    if (!this.isObject(value)) return false;
+    const keys = Object.keys(value);
+    if (!keys.includes('data')) return false;
+
+    // 仅允许 data 和 message 两个键
+    const allowed = new Set(['data', 'message']);
+    if (!keys.every((key) => allowed.has(key))) return false;
+
+    // message 若存在，必须为字符串
+    const message = (value as { message?: unknown }).message;
+    if (message !== undefined && typeof message !== 'string') return false;
+
+    return true;
   }
 
   /**

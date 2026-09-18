@@ -30,7 +30,7 @@ import { Auth } from './entities/auth.entity';
  * 专注于用户认证相关的核心业务逻辑，与用户管理功能完全分离。
  *
  * 精简说明：
- * - 移除了 RBAC 角色分配、Token 黑名单、在线用户监控、踢出用户等逻辑；
+ * - 移除了 Token 黑名单、在线用户监控、踢出用户等逻辑；
  * - 刷新令牌改为自校验的 JWT，不再依赖外部缓存存储；
  * - 登出 = 前端丢弃令牌，服务端不再维护黑名单。
  */
@@ -324,7 +324,7 @@ export class AuthService {
    * 从数据库查询认证用户的详细信息，包含所有非敏感字段
    *
    * @param auth 认证实体（仅用于获取ID）
-   * @returns 包含用户ID、用户名、昵称、头像、角色、邮箱、性别、手机号等信息
+   * @returns 包含用户ID、用户名、昵称、头像、邮箱、性别、手机号等信息
    */
   async getAuthInfo(auth: CurrentUser): Promise<User> {
     if (auth.userId) {

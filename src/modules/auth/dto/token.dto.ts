@@ -11,7 +11,6 @@ import { IsNotEmpty, IsString } from 'class-validator';
  * 字段说明：
  * - authId: 认证ID
  * - username: 用户名
- * - roles: 用户角色
  * - iat: 签发时间（JWT标准字段）
  * - exp: 过期时间（JWT标准字段）
  */
@@ -33,13 +32,6 @@ export class JwtPayloadDto {
     example: 'admin',
   })
   username!: string;
-
-  @ApiProperty({
-    description: '用户角色',
-    example: ['admin'],
-    type: [String],
-  })
-  roles!: string[];
 
   @ApiProperty({
     description: '签发时间（Unix时间戳）',

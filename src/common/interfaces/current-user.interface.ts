@@ -14,9 +14,6 @@ export interface CurrentUser {
   /** 用户名 */
   username: string;
 
-  /** 用户角色列表（精简后默认为空，可按需在 JWT payload 中扩展） */
-  roles?: string[];
-
   /** 最后登录时间 */
   lastLoginAt?: Date;
 }

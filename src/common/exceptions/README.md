@@ -33,7 +33,7 @@ import { BusinessExceptionFactory } from '@/common/exceptions';
 
 throw BusinessExceptionFactory.invalidParameter('请求参数', { field: 'username' });
 throw BusinessExceptionFactory.unauthorized('鉴权');
-throw BusinessExceptionFactory.forbidden('资源访问', { requiredRoles: ['admin'] });
+throw BusinessExceptionFactory.forbidden('资源访问', { resource: 'order' });
 throw BusinessExceptionFactory.notFound('用户', { id: 1 });
 throw BusinessExceptionFactory.conflict('资源', { id: 1 });
 throw BusinessExceptionFactory.systemBusy({ message: '请求过于频繁', retryAfter: 60 });

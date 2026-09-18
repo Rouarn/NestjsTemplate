@@ -42,11 +42,13 @@ export interface ErrorResponse extends IResponse<unknown, string | string[]> {
  * 开发者接口返回数据类型（普通接口）
  * Controller 中可以返回的格式:
  * 1. 直接返回数据: T (如 {token: 'xxx'} 或 string 等)
- * 2. 包装格式: {data: T, message?: string}
+ * 2. 包装格式: { data: T, message?: string }
  *
  * 说明：
  * - 普通接口无需分页字段，拦截器会自动包装为统一响应结构。
  * - message 可选；未提供时会使用默认成功消息。
+ * - 包装格式的判定采用严格键集合：仅当对象恰好包含 data（及可选 message）
+ *   两个键时才识别为包装，避免与含 data 字段的普通业务对象歧义。
  */
 export type DeveloperResponse<T = unknown> =
   | T

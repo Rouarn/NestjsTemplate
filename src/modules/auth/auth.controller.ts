@@ -144,7 +144,7 @@ export class AuthController {
    */
   @ApiOperation({
     summary: '获取用户信息',
-    description: '获取当前登录用户的详细信息，包括权限和角色',
+    description: '获取当前登录用户的详细信息',
   })
   @ApiResponse({ status: 200, description: '成功获取用户信息', type: User })
   @ApiBearerAuth()

@@ -26,6 +26,4 @@ export const JWT_CONSTANTS = {
 export const AUTH_METADATA_KEYS = {
   /** 公共路由标识键 */
   IS_PUBLIC: 'isPublic',
-  /** 角色权限标识键 */
-  ROLES: 'roles',
 } as const;
