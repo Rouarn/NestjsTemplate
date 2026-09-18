@@ -74,10 +74,11 @@ function flattenValidationErrors(
 export class CustomValidationPipe extends ValidationPipe {
   constructor() {
     super({
-      transform: true, // 启用自动类型转换
-      transformOptions: {
-        enableImplicitConversion: true, // 启用隐式类型转换
-      },
+      transform: true, // 将 plain payload 转换为 DTO 实例（不做基于反射类型的隐式转换）
+      // 不启用 enableImplicitConversion 隐式类型转换选项：
+      // query 参数均为字符串，隐式转换存在 `Boolean("false") === true`、
+      // `Number("abc") === NaN` 等陷阱；需要转换的字段在 DTO 中用
+      // `@Type(() => Number/Boolean)` 或显式 `@Transform` 逐个声明。
       whitelist: true, // 只保留DTO中定义的属性
       forbidNonWhitelisted: true, // 禁止未定义的属性
       exceptionFactory: (errors: ValidationError[]) => {
