@@ -1,5 +1,5 @@
 import { Injectable, ValidationPipe } from '@nestjs/common';
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import type { ValidationError } from 'class-validator';
 
 /**
@@ -38,7 +38,7 @@ export class CustomValidationPipe extends ValidationPipe {
           })
           .flat();
 
-        return BusinessExceptionFactory.invalidParameter('请求参数', {
+        return BusinessException.badRequest('请求参数不合法', {
           validationErrors: messages,
         });
       },

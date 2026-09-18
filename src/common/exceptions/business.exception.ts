@@ -5,10 +5,20 @@
  * 便于前后端约定与日志采集。
  *
  * 使用场景：服务端主动抛出可预期的错误（校验失败、权限不足、资源不存在、冲突等）。
+ *
+ * 推荐用法（message-first 静态工厂，第一参数即最终响应文案）：
+ * ```ts
+ * throw BusinessException.notFound('用户不存在', { id });
+ * throw BusinessException.badRequest('旧密码错误');
+ * ```
+ * 未覆盖的状态码可直接 `new BusinessException(message, HttpStatus.XXX)` 兜底。
  */
 import type { ErrorResponse } from '@/common/interfaces';
 import { formatISOString } from '@/utils';
 import { HttpException, HttpStatus } from '@nestjs/common';
+
+/** 错误上下文类型：随响应体 `data` 字段返回，用于调试信息或补充提示 */
+export type BusinessExceptionDetails = Record<string, unknown>;
 
 /**
  * 业务异常类
@@ -24,15 +34,19 @@ import { HttpException, HttpStatus } from '@nestjs/common';
  */
 export class BusinessException extends HttpException {
   /** 额外的错误上下文，用于传递调试信息或提示文案 */
-  readonly details?: unknown;
+  readonly details?: BusinessExceptionDetails;
 
   /**
-   * 构造一个业务异常
+   * 构造一个业务异常（任意状态码的兜底入口）
    * @param message 错误信息，支持字符串或字符串数组
-   * @param status HTTP 状态码
+   * @param status HTTP 状态码，默认 400
    * @param details 额外的错误上下文（可选）
    */
-  constructor(message: string | string[], status: HttpStatus, details?: unknown) {
+  constructor(
+    message: string | string[],
+    status: HttpStatus = HttpStatus.BAD_REQUEST,
+    details?: BusinessExceptionDetails,
+  ) {
     const body: ErrorResponse = {
       code: status,
       message,
@@ -43,101 +57,76 @@ export class BusinessException extends HttpException {
     super(body, status);
     this.details = details;
   }
-}
-
-/**
- * 常用业务异常的工厂方法，避免各处重复书写状态码与文案。
- * 所有方法均返回 `BusinessException`，可直接在服务/控制器中抛出。
- */
-export class BusinessExceptionFactory {
-  /**
-   * 参数校验失败
-   * @param target 具体校验目标，如“用户名”
-   * @param details 额外上下文（可选）
-   */
-  static validation(target: string, details?: unknown): BusinessException {
-    return new BusinessException(
-      `${target} ${target ? '- ' : ''}验证失败`,
-      HttpStatus.BAD_REQUEST,
-      details,
-    );
-  }
 
   /**
-   * 参数不合法
-   * @param target 具体参数名
+   * 参数错误 / 校验失败
+   * @param message 完整错误文案，默认「请求参数不合法」
    * @param details 额外上下文（可选）
    */
-  static invalidParameter(target: string, details?: unknown): BusinessException {
-    return new BusinessException(
-      `${target} ${target ? '- ' : ''}参数不合法`,
-      HttpStatus.BAD_REQUEST,
-      details,
-    );
+  static badRequest(
+    message: string | string[] = '请求参数不合法',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.BAD_REQUEST, details);
   }
 
   /**
    * 未授权（需要登录或凭证无效）
-   * @param target 资源或操作名称
+   * @param message 完整错误文案，默认「未授权」
    * @param details 额外上下文（可选）
    */
-  static unauthorized(target: string, details?: unknown): BusinessException {
-    return new BusinessException(
-      `${target} ${target ? '- ' : ''}未授权`,
-      HttpStatus.UNAUTHORIZED,
-      details,
-    );
+  static unauthorized(
+    message: string | string[] = '未授权',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.UNAUTHORIZED, details);
   }
 
   /**
    * 无权限（登录态有效但权限不足）
-   * @param target 资源或操作名称
+   * @param message 完整错误文案，默认「无权限」
    * @param details 额外上下文（可选）
    */
-  static forbidden(target: string, details?: unknown): BusinessException {
-    return new BusinessException(
-      `${target} ${target ? '- ' : ''}无权限`,
-      HttpStatus.FORBIDDEN,
-      details,
-    );
+  static forbidden(
+    message: string | string[] = '无权限',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.FORBIDDEN, details);
   }
 
   /**
    * 资源不存在
-   * @param target 资源名称或标识
+   * @param message 完整错误文案，默认「资源不存在」
    * @param details 额外上下文（可选）
    */
-  static notFound(target: string, details?: unknown): BusinessException {
-    return new BusinessException(
-      `${target} ${target ? '- ' : ''}不存在`,
-      HttpStatus.NOT_FOUND,
-      details,
-    );
+  static notFound(
+    message: string | string[] = '资源不存在',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.NOT_FOUND, details);
   }
 
   /**
    * 资源冲突（如唯一键冲突）
-   * @param target 资源名称或标识
+   * @param message 完整错误文案，默认「资源冲突」
    * @param details 额外上下文（可选）
    */
-  static conflict(target: string, details?: unknown): BusinessException {
-    return new BusinessException(
-      `${target} ${target ? '- ' : ''}冲突`,
-      HttpStatus.CONFLICT,
-      details,
-    );
+  static conflict(
+    message: string | string[] = '资源冲突',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.CONFLICT, details);
   }
 
   /**
-   * 系统繁忙/流量控制
-   * 可通过 `details.message` 自定义提示文案
-   * @param details 可选的上下文；可包含 `message` 字段
+   * 系统繁忙 / 流量控制
+   * @param message 完整错误文案，默认「请求过于频繁」
+   * @param details 额外上下文（可选）
    */
-  static systemBusy(details?: {
-    message?: string | string[];
-    [key: string]: unknown;
-  }): BusinessException {
-    const { message = '系统繁忙', ...rest } = details ?? {};
-    return new BusinessException(message, HttpStatus.TOO_MANY_REQUESTS, rest);
+  static tooManyRequests(
+    message: string | string[] = '请求过于频繁',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.TOO_MANY_REQUESTS, details);
   }
 }

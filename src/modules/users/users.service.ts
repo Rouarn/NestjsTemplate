@@ -1,5 +1,5 @@
 import { Status, toggleStatus } from '@/common/enums';
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import { DatabaseService } from '@/database';
 import { Auth } from '@/modules/auth/entities/auth.entity';
 import { Injectable } from '@nestjs/common';
@@ -75,7 +75,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw BusinessExceptionFactory.notFound('用户', { id });
+      throw BusinessException.notFound('用户不存在', { id });
     }
 
     return user;
@@ -96,7 +96,7 @@ export class UsersService {
         where: { email: updateUserDto.email },
       });
       if (existingUser && existingUser.id !== id) {
-        throw BusinessExceptionFactory.conflict('邮箱已被使用', { email: updateUserDto.email });
+        throw BusinessException.conflict('邮箱已被使用', { email: updateUserDto.email });
       }
     }
 
@@ -118,7 +118,7 @@ export class UsersService {
     const user = await this.findById(id);
 
     if (!user.auth) {
-      throw BusinessExceptionFactory.notFound('用户认证信息', { id, hasAuth: false });
+      throw BusinessException.notFound('用户认证信息不存在', { id, hasAuth: false });
     }
 
     // 更新认证状态
@@ -153,7 +153,7 @@ export class UsersService {
     });
 
     if (users.length === 0) {
-      throw BusinessExceptionFactory.notFound('要删除的用户', { ids });
+      throw BusinessException.notFound('要删除的用户不存在', { ids });
     }
 
     await this.executeDeleteUsers(users);

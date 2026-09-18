@@ -104,7 +104,7 @@ export class Delete${PascalSingular}Dto {
   const service = `import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import type { Create${PascalSingular}Dto } from './dto/create-${singular}.dto';
 import type { Update${PascalSingular}Dto } from './dto/update-${singular}.dto';
 import type { Delete${PascalSingular}Dto } from './dto/delete-${singular}.dto';
@@ -135,7 +135,7 @@ export class ${PascalPlural}Service {
   async findById(id: string): Promise<${PascalSingular}> {
     const entity = await this.repo.findOne({ where: { id } });
     if (!entity) {
-      throw BusinessExceptionFactory.notFound('${PascalSingular}', { id });
+      throw BusinessException.notFound('${PascalSingular}不存在', { id });
     }
     return entity;
   }
@@ -156,12 +156,12 @@ export class ${PascalPlural}Service {
     if (dto.ids?.length) {
       const list = await this.repo.findBy({ id: In(dto.ids) });
       if (list.length === 0) {
-        throw BusinessExceptionFactory.notFound('要删除的记录', { ids: dto.ids });
+        throw BusinessException.notFound('要删除的记录不存在', { ids: dto.ids });
       }
       await this.repo.remove(list);
       return { message: \`成功删除 \${list.length} 条记录\`, };
     }
-    throw BusinessExceptionFactory.invalidParameter('缺少删除参数', { message: '必须提供要删除的记录 ID 或 ID 列表' });
+    throw BusinessException.badRequest('缺少删除参数', { message: '必须提供要删除的记录 ID 或 ID 列表' });
   }
 }
 `;

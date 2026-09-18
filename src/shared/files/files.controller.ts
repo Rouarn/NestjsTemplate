@@ -1,4 +1,5 @@
 import { Public } from '@/common/decorators';
+import { BusinessException } from '@/common/exceptions';
 import {
   Controller,
   Post,
@@ -10,7 +11,6 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FileUploadResponseDto } from './dto';
-import { BusinessExceptionFactory } from '@/common/exceptions';
 import { FileUploadGuard } from './guards/file-upload.guard';
 import { FilesService } from './services/files.service';
 
@@ -48,7 +48,7 @@ export class FilesController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<FileUploadResponseDto> {
     if (!file) {
-      throw BusinessExceptionFactory.invalidParameter('文件不能为空');
+      throw BusinessException.badRequest('文件不能为空');
     }
     return await this.filesService.uploadSingleFile(file);
   }
@@ -86,7 +86,7 @@ export class FilesController {
     @UploadedFiles() files: Express.Multer.File[],
   ): Promise<FileUploadResponseDto[]> {
     if (!files || files.length === 0) {
-      throw BusinessExceptionFactory.invalidParameter('文件不能为空');
+      throw BusinessException.badRequest('文件不能为空');
     }
     return await this.filesService.uploadMultipleFiles(files);
   }

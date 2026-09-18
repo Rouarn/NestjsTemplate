@@ -1,4 +1,4 @@
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import { AppConfigService, ConfigModule } from '@/config';
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
@@ -28,7 +28,7 @@ import { StorageService } from './services/storage.service';
           fileFilter: (_req, file, callback) => {
             if (!allowedTypes.includes(file.mimetype)) {
               return callback(
-                BusinessExceptionFactory.invalidParameter(
+                BusinessException.badRequest(
                   `不支持的文件类型: ${file.mimetype}。 允许的类型: ${allowedTypes.join(', ')}`,
                 ),
                 false,

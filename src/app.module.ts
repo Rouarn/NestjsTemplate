@@ -22,7 +22,7 @@ import { JwtModule } from '@nestjs/jwt';
 // 应用核心组件
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { HttpExceptionFilter } from './common/filters';
+import { AllExceptionsFilter } from './common/filters';
 import { JwtAuthGuard } from './common/guards';
 import { LoggingInterceptor, ResponseInterceptor } from './common/interceptors';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
@@ -133,7 +133,7 @@ import { UsersModule } from './modules/users/users.module';
 
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter, // HTTP 异常过滤器 (统一错误处理)
+      useClass: AllExceptionsFilter, // 全局异常过滤器 (统一错误处理兜底)
     },
   ],
 })

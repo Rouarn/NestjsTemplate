@@ -1,5 +1,5 @@
 import { JWT_CONSTANTS } from '@/common/constants';
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
 import { WhitelistAuth } from '@/utils';
@@ -48,7 +48,7 @@ export class JwtAuthGuard implements CanActivate {
       if (isPublic) {
         return true;
       }
-      throw BusinessExceptionFactory.unauthorized('未提供认证令牌');
+      throw BusinessException.unauthorized('未提供认证令牌');
     }
 
     try {
@@ -86,11 +86,11 @@ export class JwtAuthGuard implements CanActivate {
         if (!this.appConfig.isProduction) {
           this.logger.debug(`Token已过期: ${error.message}`);
         }
-        throw BusinessExceptionFactory.unauthorized('令牌已过期');
+        throw BusinessException.unauthorized('令牌已过期');
       }
 
       this.logger.error(`认证失败: ${error.message}`, error.stack);
-      throw BusinessExceptionFactory.unauthorized('认证失败');
+      throw BusinessException.unauthorized('认证失败');
     }
   }
 

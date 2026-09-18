@@ -1,6 +1,6 @@
 import { JWT_CONSTANTS } from '@/common/constants';
 import { isEnabled } from '@/common/enums';
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
 import { DatabaseService } from '@/database';
@@ -89,7 +89,7 @@ export class AuthService {
     const { token, code } = captchaVerifyDto;
 
     if (!token || !code) {
-      throw BusinessExceptionFactory.invalidParameter('验证码token和code不能为空');
+      throw BusinessException.badRequest('验证码token和code不能为空');
     }
 
     // 从token中提取验证码文本
@@ -97,7 +97,7 @@ export class AuthService {
 
     // 比较验证码文本是否匹配
     if (storedToken !== crypto.createHash('md5').update(code.toLowerCase()).digest('hex')) {
-      throw BusinessExceptionFactory.validation('验证码错误');
+      throw BusinessException.badRequest('验证码错误');
     }
 
     return { message: '验证成功' };
@@ -121,7 +121,7 @@ export class AuthService {
       });
 
       if (existingAuth) {
-        throw BusinessExceptionFactory.conflict('用户名已存在', { username: registerDto.username });
+        throw BusinessException.conflict('用户名已存在', { username: registerDto.username });
       }
 
       // 创建认证记录
@@ -142,7 +142,7 @@ export class AuthService {
           where: { email: registerDto.email },
         });
         if (existingUser) {
-          throw BusinessExceptionFactory.conflict('邮箱已被使用', { email: registerDto.email });
+          throw BusinessException.conflict('邮箱已被使用', { email: registerDto.email });
         }
       }
 
@@ -184,7 +184,7 @@ export class AuthService {
 
     if (!auth) {
       // 记录登录失败尝试（可选：防止用户名枚举攻击）
-      throw BusinessExceptionFactory.notFound('用户', { username: loginDto.username });
+      throw BusinessException.notFound('用户不存在', { username: loginDto.username });
     }
 
     // 检查账号是否被锁定
@@ -206,13 +206,13 @@ export class AuthService {
         await this.lockAccount(auth.id);
         const duration = this.calculateLockDuration(currentAttempts);
 
-        throw BusinessExceptionFactory.systemBusy({
-          message: `账号已被锁定，请 ${Math.ceil(duration / 60000)} 分钟后再试`,
-        });
+        throw BusinessException.tooManyRequests(
+          `账号已被锁定，请 ${Math.ceil(duration / 60000)} 分钟后再试`,
+        );
       }
 
-      throw BusinessExceptionFactory.validation('', {
-        username: `账号: ${loginDto.username} 登录密码错误`,
+      throw BusinessException.badRequest('登录密码错误', {
+        username: loginDto.username,
       });
     }
 
@@ -224,7 +224,7 @@ export class AuthService {
 
     // 生成JWT令牌
     if (!auth.user) {
-      throw BusinessExceptionFactory.notFound('用户数据异常：缺少关联的用户信息');
+      throw BusinessException.notFound('用户数据异常：缺少关联的用户信息');
     }
 
     return this.issueTokenResponse(auth);
@@ -244,7 +244,7 @@ export class AuthService {
     // 验证刷新令牌（自校验 JWT）
     const authId = await this.validateRefreshToken(refreshToken);
     if (!authId) {
-      throw BusinessExceptionFactory.unauthorized('令牌刷新');
+      throw BusinessException.unauthorized('刷新令牌无效或已过期');
     }
 
     // 获取认证信息
@@ -254,7 +254,7 @@ export class AuthService {
     });
 
     if (!auth) {
-      throw BusinessExceptionFactory.notFound('认证记录', { authId });
+      throw BusinessException.notFound('认证记录不存在', { authId });
     }
 
     // 检查账号状态
@@ -276,8 +276,7 @@ export class AuthService {
       const remainingMs = lockTime.getTime() - new Date().getTime();
       const remainingMinutes = Math.ceil(remainingMs / 60000);
 
-      throw BusinessExceptionFactory.systemBusy({
-        message: `账号已被锁定，请 ${remainingMinutes} 分钟后再试`,
+      throw BusinessException.tooManyRequests(`账号已被锁定，请 ${remainingMinutes} 分钟后再试`, {
         lockTime: lockTime.toLocaleString(),
         locked: true,
         remainingMinutes,
@@ -286,7 +285,7 @@ export class AuthService {
 
     // 检查认证状态
     if (!isEnabled(auth.status)) {
-      throw BusinessExceptionFactory.forbidden('访问被禁用', {
+      throw BusinessException.forbidden('访问被禁用', {
         username: auth.username,
         disabled: true,
       });
@@ -355,7 +354,7 @@ export class AuthService {
       .getOne();
 
     if (!auth) {
-      throw BusinessExceptionFactory.notFound('认证记录', { authId });
+      throw BusinessException.notFound('认证记录不存在', { authId });
     }
 
     // 验证旧密码
@@ -365,7 +364,7 @@ export class AuthService {
     );
 
     if (!isOldPasswordValid) {
-      throw BusinessExceptionFactory.validation('旧密码错误');
+      throw BusinessException.badRequest('旧密码错误');
     }
 
     // 生成新的盐值和密码哈希

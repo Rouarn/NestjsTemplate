@@ -1,4 +1,4 @@
-import { BusinessExceptionFactory } from '@/common/exceptions';
+import { BusinessException } from '@/common/exceptions';
 import { AppConfigService } from '@/config';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
@@ -20,7 +20,7 @@ export class FileUploadGuard implements CanActivate {
 
     // 1. 确保是 multipart/form-data 请求
     if (!contentType?.includes('multipart/form-data')) {
-      throw BusinessExceptionFactory.invalidParameter('请求内容类型必须是 multipart/form-data');
+      throw BusinessException.badRequest('请求内容类型必须是 multipart/form-data');
     }
 
     // 2. 早期大小检查 (Content-Length)
@@ -30,7 +30,7 @@ export class FileUploadGuard implements CanActivate {
       const sizeInBytes = parseInt(contentLength, 10);
 
       if (sizeInBytes > uploadsMaxSize) {
-        throw BusinessExceptionFactory.invalidParameter(
+        throw BusinessException.badRequest(
           `请求体过大: ${(sizeInBytes / 1024 / 1024).toFixed(2)}MB。 最大允许: ${(
             uploadsMaxSize /
             1024 /
