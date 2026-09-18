@@ -56,28 +56,6 @@ export interface SwaggerConfig {
   enabled: boolean;
 }
 
-// Redis 缓存配置
-export interface RedisCacheConfig {
-  enabled: boolean;
-  host: string;
-  port: number;
-  password?: string;
-  db: number;
-  options: {
-    retryDelayOnFailover: number;
-    enableReadyCheck: boolean;
-    maxRetriesPerRequest: number;
-    lazyConnect: boolean;
-    keepAlive: number;
-    connectTimeout: number;
-    commandTimeout: number;
-  };
-  cache: {
-    defaultTtl: number;
-    keyPrefix: string;
-  };
-}
-
 // 数据库连接配置
 export interface DatabaseConfig {
   type: 'mysql';
@@ -123,7 +101,6 @@ export interface AppConfig {
   static: StaticConfig;
   cors: CorsConfig;
   swagger: SwaggerConfig;
-  redis: RedisCacheConfig;
   database: DatabaseConfig;
   logger: LoggerConfig;
 }

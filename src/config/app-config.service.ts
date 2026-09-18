@@ -173,53 +173,6 @@ export class AppConfigService {
     };
   }
 
-  // Redis 缓存配置
-  get redisConfig(): {
-    enabled: boolean;
-    host: string;
-    port: number;
-    password?: string;
-    db: number;
-    options: {
-      retryDelayOnFailover: number;
-      enableReadyCheck: boolean;
-      maxRetriesPerRequest: number;
-      lazyConnect: boolean;
-      keepAlive: number;
-      connectTimeout: number;
-      commandTimeout: number;
-    };
-    cache: {
-      defaultTtl: number;
-      keyPrefix: string;
-    };
-  } {
-    return {
-      enabled: this.configService.get<boolean>('app.redis.enabled')!,
-      host: this.configService.get<string>('app.redis.host')!,
-      port: this.configService.get<number>('app.redis.port')!,
-      password: this.configService.get<string>('app.redis.password'),
-      db: this.configService.get<number>('app.redis.db')!,
-      options: {
-        retryDelayOnFailover: this.configService.get<number>(
-          'app.redis.options.retryDelayOnFailover',
-        )!,
-        enableReadyCheck: this.configService.get<boolean>('app.redis.options.enableReadyCheck')!,
-        maxRetriesPerRequest: this.configService.get<number>(
-          'app.redis.options.maxRetriesPerRequest',
-        )!,
-        lazyConnect: this.configService.get<boolean>('app.redis.options.lazyConnect')!,
-        keepAlive: this.configService.get<number>('app.redis.options.keepAlive')!,
-        connectTimeout: this.configService.get<number>('app.redis.options.connectTimeout')!,
-        commandTimeout: this.configService.get<number>('app.redis.options.commandTimeout')!,
-      },
-      cache: {
-        defaultTtl: this.configService.get<number>('app.redis.cache.defaultTtl')!,
-        keyPrefix: this.configService.get<string>('app.redis.cache.keyPrefix')!,
-      },
-    };
-  }
-
   // 数据库连接配置
   get databaseConfig(): {
     type: 'mysql';

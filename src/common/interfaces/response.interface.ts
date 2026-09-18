@@ -81,9 +81,7 @@ export type DeveloperPaginatedResponse<T = unknown> =
  * 拦截器会自动识别并归一化为标准分页响应。
  */
 export type PaginatedArrayPayload<T = unknown> =
-  | { list: T[]; total: number }
-  | { records: T[]; total: number }
-  | { data: T[]; total: number };
+  { list: T[]; total: number } | { records: T[]; total: number } | { data: T[]; total: number };
 
 /**
  * 分页数据类型 - 返回给前端的格式

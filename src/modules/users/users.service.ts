@@ -1,10 +1,8 @@
-import { CACHE_PREFIXES, CACHE_TOKENS, CACHE_TTL } from '@/common/constants';
 import { Status, toggleStatus } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { DatabaseService } from '@/database';
 import { Auth } from '@/modules/auth/entities/auth.entity';
-import { ICacheService } from '@/shared/cache/interfaces';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { BatchDeleteUserDto } from './dto/batch-delete-user.dto';
@@ -17,6 +15,8 @@ import { User } from './entities/user.entity';
  *
  * 提供用户信息管理的核心业务逻辑，专注于用户资料的CRUD操作。
  * 与认证功能分离，职责单一明确。
+ *
+ * 精简说明：移除了缓存层，用户查询直接读取数据库。
  */
 @Injectable()
 export class UsersService {
@@ -25,38 +25,26 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
-    @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
-    private readonly cacheService: ICacheService,
     private readonly databaseService: DatabaseService,
   ) {}
 
   /**
-   * 获取所有用户（带分页和缓存）
+   * 获取所有用户（带分页）
    * @returns 用户列表和总数
    * @param queryDto
    *
    */
   async findAll(queryDto: QueryUserDto): Promise<{ list: User[]; total: number }> {
-    const { current, size, nickname, email, roles, status } = queryDto;
+    const { current, size, nickname, email, status } = queryDto;
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.auth', 'auth')
-      .leftJoinAndSelect('user.roles', 'roles');
+      .leftJoinAndSelect('user.auth', 'auth');
 
     if (nickname) {
       queryBuilder.andWhere('user.nickname LIKE :nickname', { nickname: `%${nickname}%` });
     }
     if (email) {
       queryBuilder.andWhere('user.email LIKE :email', { email: `%${email}%` });
-    }
-    if (roles) {
-      const roleList = roles
-        .split(',')
-        .map((r) => r.trim())
-        .filter(Boolean);
-      if (roleList.length > 0) {
-        queryBuilder.andWhere('roles.name IN (:...roles)', { roles: roleList });
-      }
     }
     if (status !== undefined) {
       queryBuilder.andWhere('auth.status = :status', { status });
@@ -76,28 +64,20 @@ export class UsersService {
   }
 
   /**
-   * 根据ID获取用户（带缓存）
+   * 根据ID获取用户
    * @param id 用户ID
    * @returns 用户信息
    */
   async findById(id: string): Promise<User> {
-    const cacheKey = `${CACHE_PREFIXES.USER_PROFILE}${id}`;
-    const cachedUser = await this.cacheService.get<User>(cacheKey);
-    if (cachedUser) {
-      return cachedUser;
-    }
-
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: { auth: true, roles: true },
+      relations: { auth: true },
     });
 
     if (!user) {
       throw BusinessExceptionFactory.notFound('用户', { id });
     }
 
-    // 缓存用户信息，设置1小时过期
-    await this.cacheService.set(cacheKey, user, { ttl: CACHE_TTL.USER_PROFILE });
     return user;
   }
 
@@ -123,8 +103,6 @@ export class UsersService {
     Object.assign(user, updateUserDto);
 
     await this.userRepository.save(user);
-    // 清除缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
 
     return;
   }
@@ -146,10 +124,6 @@ export class UsersService {
     // 更新认证状态
     user.auth.status = status ?? toggleStatus(user.auth.status);
     await this.authRepository.update(user.auth.id, { status: user.auth.status });
-
-    // 清除缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${id}`);
-    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${user.auth.id}`);
 
     return user;
   }
@@ -188,17 +162,17 @@ export class UsersService {
   }
 
   /**
-   * 执行用户删除逻辑（包含事务和缓存清理）
+   * 执行用户删除逻辑（包含事务）
    * @param users 用户列表
    */
   private async executeDeleteUsers(users: User[]): Promise<void> {
     if (users.length === 0) return;
 
-    // 1. 数据库事务删除
+    // 数据库事务删除
     await this.databaseService.getDataSource().transaction(async (manager) => {
       const authsToDelete = users.map((user) => user.auth).filter((auth) => !!auth);
 
-      // 删除用户（会自动删除 user_roles 中间表记录）
+      // 删除用户
       await manager.remove(users);
 
       // 删除关联的认证信息
@@ -206,17 +180,5 @@ export class UsersService {
         await manager.remove(authsToDelete);
       }
     });
-
-    // 2. 批量清除缓存
-    const userCacheKeys = users.map((user) => `${CACHE_PREFIXES.USER_PROFILE}${user.id}`);
-    await this.cacheService.delMany(userCacheKeys);
-
-    const authCacheKeys = users
-      .filter((user) => user.auth)
-      .map((user) => `${CACHE_PREFIXES.AUTH_STATUS}${user.auth.id}`);
-
-    if (authCacheKeys.length > 0) {
-      await this.cacheService.delMany(authCacheKeys);
-    }
   }
 }

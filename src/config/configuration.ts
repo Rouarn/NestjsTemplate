@@ -94,28 +94,6 @@ export default registerAs('app', (): AppConfig => {
       enabled: environment !== 'production',
     },
 
-    // Redis 缓存配置
-    redis: {
-      enabled: getEnvVar('NEST_REDIS_ENABLED', environment === 'development'),
-      host: getEnvVar('NEST_REDIS_HOST', 'localhost'),
-      port: getEnvVar('NEST_REDIS_PORT', 6379),
-      password: getEnvVar('NEST_REDIS_PASSWORD', undefined),
-      db: getEnvVar('NEST_REDIS_DB', 0),
-      options: {
-        retryDelayOnFailover: getEnvVar('NEST_REDIS_RETRY_DELAY', 100),
-        enableReadyCheck: getEnvVar('NEST_REDIS_ENABLE_READY_CHECK', false),
-        maxRetriesPerRequest: getEnvVar('NEST_REDIS_RETRIES', 3),
-        lazyConnect: getEnvVar('NEST_REDIS_LAZY_CONNECT', true),
-        keepAlive: getEnvVar('NEST_REDIS_KEEP_ALIVE', 30000),
-        connectTimeout: getEnvVar('NEST_REDIS_CONNECT_TIMEOUT', 10000),
-        commandTimeout: getEnvVar('NEST_REDIS_COMMAND_TIMEOUT', 5000),
-      },
-      cache: {
-        defaultTtl: getEnvVar('NEST_REDIS_DEFAULT_TTL', 3600),
-        keyPrefix: getEnvVar('NEST_REDIS_KEY_PREFIX', 'nestjs:'),
-      },
-    },
-
     // 数据库连接配置
     database: {
       type: 'mysql',

@@ -43,15 +43,6 @@ export const validationSchema = Joi.object({
   NEST_SWAGGER_PREFIX: Joi.string().default('/api-docs'),
   NEST_SWAGGER_FILENAME: Joi.string().default('api-docs.json'),
 
-  // Redis 缓存配置 (可选)
-  NEST_REDIS_ENABLED: Joi.string().valid('true', 'false').default('true'),
-  NEST_REDIS_HOST: Joi.string().default('localhost'),
-  NEST_REDIS_PORT: Joi.number().default(6379),
-  NEST_REDIS_PASSWORD: Joi.string().allow('').optional(),
-  NEST_REDIS_DB: Joi.number().default(0),
-  NEST_REDIS_DEFAULT_TTL: Joi.number().default(3600),
-  NEST_REDIS_KEY_PREFIX: Joi.string().default('nestjs:'),
-
   // CORS 跨域配置
   NEST_CORS_ORIGINS: Joi.string().optional(),
 

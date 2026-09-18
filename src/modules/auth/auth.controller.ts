@@ -1,14 +1,11 @@
 import { GetCurrentUser, Public } from '@/common/decorators';
 import { CurrentUser } from '@/common/interfaces';
-import { PermissionAction } from '@/modules/rbac/constants/permission.constant';
-import { RequirePermissions } from '@/modules/rbac/decorators/permissions.decorator';
 import {
   Body,
   ClassSerializerInterceptor,
   Controller,
   Get,
   Ip,
-  Param,
   Post,
   Put,
   Req,
@@ -162,7 +159,6 @@ export class AuthController {
    * @param user 当前用户信息
    * @returns 修改结果
    */
-  @RequirePermissions(PermissionAction.ROLE_UPDATE)
   @Put('change-password')
   @ApiOperation({
     summary: '修改密码',
@@ -199,38 +195,5 @@ export class AuthController {
   async logout(@Req() req: Request): Promise<{ message: string }> {
     const token = req.headers.authorization?.split(' ')[1] ?? '';
     return this.authService.logout(token);
-  }
-
-  /**
-   * 获取所有在线用户
-   * @returns 在线用户列表
-   */
-  @ApiOperation({
-    summary: '获取在线用户',
-    description: '获取所有当前在线的用户列表（仅系统管理员可用）',
-  })
-  @ApiResponse({ status: 200, description: '成功获取在线用户列表', type: [User] })
-  @ApiBearerAuth()
-  @RequirePermissions(PermissionAction.AUTH_ACTIVE_USERS)
-  @Get('active-users')
-  async getActiveUsers(): Promise<Partial<User>[]> {
-    return await this.authService.getActiveUsers();
-  }
-
-  /**
-   * 踢出指定用户
-   * @param id 认证ID
-   */
-  @ApiOperation({
-    summary: '踢出指定用户',
-    description: '管理员强制指定用户下线',
-  })
-  @ApiResponse({ status: 200, description: '操作成功' })
-  @ApiBearerAuth()
-  @RequirePermissions(PermissionAction.AUTH_KICKOUT)
-  @Post('kickout/:id')
-  async kickOutUser(@Param('id') id: string): Promise<{ message: string }> {
-    await this.authService.kickOutUserById(id);
-    return { message: '用户已踢出' };
   }
 }

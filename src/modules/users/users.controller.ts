@@ -1,5 +1,3 @@
-import { PermissionAction } from '@/modules/rbac/constants/permission.constant';
-import { RequirePermissions } from '@/modules/rbac/decorators/permissions.decorator';
 import {
   Body,
   Controller,
@@ -33,6 +31,8 @@ import { UsersService } from './users.service';
  *
  * 提供用户管理的REST API接口，专注于用户资料的CRUD操作。
  * 与认证功能分离，职责单一明确。
+ *
+ * 精简说明：移除了细粒度权限装饰器，接口受全局 JWT 认证守卫保护（登录即可访问）。
  */
 @ApiTags('用户管理')
 @Controller('users')
@@ -45,13 +45,11 @@ export class UsersController {
    * 支持分页、筛选和搜索
    */
   @Get()
-  @RequirePermissions(PermissionAction.USER_READ)
   @ApiOperation({ summary: '获取用户列表', description: '分页获取用户列表，支持筛选' })
   @ApiQuery({ name: 'current', required: false, description: '当前页码', example: 1 })
   @ApiQuery({ name: 'size', required: false, description: '每页数量', example: 10 })
   @ApiQuery({ name: 'nickname', required: false, description: '昵称模糊搜索' })
   @ApiQuery({ name: 'email', required: false, description: '邮箱模糊搜索' })
-  @ApiQuery({ name: 'roles', required: false, description: '角色筛选' })
   @ApiQuery({ name: 'status', required: false, description: '状态筛选' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -86,7 +84,6 @@ export class UsersController {
    * 管理员可更新任意用户，普通用户只能更新自己的信息
    */
   @Patch(':id')
-  @RequirePermissions(PermissionAction.USER_UPDATE)
   @ApiOperation({ summary: '更新用户信息', description: '更新用户资料信息' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123', type: UpdateUserDto })
   @ApiBody({ type: UpdateUserDto })
@@ -112,7 +109,6 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Patch(':id/status')
-  @RequirePermissions(PermissionAction.USER_UPDATE_STATUS)
   @ApiOperation({ summary: '切换用户状态', description: '切换用户启用/禁用状态' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
@@ -136,7 +132,6 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Delete(':id')
-  @RequirePermissions(PermissionAction.USER_DELETE)
   @ApiOperation({ summary: '删除用户', description: '删除指定用户' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
@@ -156,7 +151,6 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Post('batch-delete')
-  @RequirePermissions(PermissionAction.USER_DELETE)
   @ApiOperation({ summary: '批量删除用户', description: '批量删除多个用户' })
   @ApiResponse({
     status: HttpStatus.OK,

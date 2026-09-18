@@ -1,20 +1,17 @@
-import { CACHE_PREFIXES, CACHE_TOKENS, CACHE_TTL, JWT_CONSTANTS } from '@/common/constants';
+import { JWT_CONSTANTS } from '@/common/constants';
 import { isEnabled } from '@/common/enums';
 import { BusinessExceptionFactory } from '@/common/exceptions';
 import { CurrentUser } from '@/common/interfaces';
 import { AppConfigService } from '@/config';
 import { DatabaseService } from '@/database';
-import { SystemRoles } from '@/modules/rbac/constants/system-roles.constant';
-import { ICacheService } from '@/shared/cache';
-import { getCurrentTimestamp, uuid4 } from '@/utils';
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { getCurrentTimestamp } from '@/utils';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as svgCaptcha from 'svg-captcha';
-import { In, Repository } from 'typeorm';
-import { RbacService } from '../rbac/services/rbac.service';
+import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import type {
@@ -31,6 +28,11 @@ import { Auth } from './entities/auth.entity';
 /**
  * 认证服务（AuthService）
  * 专注于用户认证相关的核心业务逻辑，与用户管理功能完全分离。
+ *
+ * 精简说明：
+ * - 移除了 RBAC 角色分配、Token 黑名单、在线用户监控、踢出用户等逻辑；
+ * - 刷新令牌改为自校验的 JWT，不再依赖外部缓存存储；
+ * - 登出 = 前端丢弃令牌，服务端不再维护黑名单。
  */
 @Injectable()
 export class AuthService {
@@ -41,10 +43,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly appConfig: AppConfigService,
-    @Inject(forwardRef(() => RbacService))
-    private readonly rbacService: RbacService,
-    @Inject(CACHE_TOKENS.I_CACHE_SERVICE)
-    private readonly cacheService: ICacheService,
   ) {}
 
   /**
@@ -149,8 +147,6 @@ export class AuthService {
       }
 
       // 创建关联的用户记录
-      const defaultRole = await this.rbacService.getDefaultRole();
-
       const user = manager.create(User, {
         auth: savedAuth,
         nickname: registerDto.nickname ?? savedAuth.username,
@@ -158,7 +154,6 @@ export class AuthService {
         avatar: registerDto.avatar,
         gender: registerDto.gender,
         mobile: registerDto.mobile,
-        roles: [defaultRole],
       });
 
       await manager.save(user);
@@ -183,7 +178,6 @@ export class AuthService {
     const auth = await this.authRepository
       .createQueryBuilder('auth')
       .leftJoinAndSelect('auth.user', 'user')
-      .leftJoinAndSelect('user.roles', 'roles')
       .addSelect(['auth.password', 'auth.salt'])
       .where('auth.username = :username', { username: loginDto.username })
       .getOne();
@@ -247,7 +241,7 @@ export class AuthService {
   async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<TokenResponseDto> {
     const { refreshToken } = refreshTokenDto;
 
-    // 验证刷新令牌
+    // 验证刷新令牌（自校验 JWT）
     const authId = await this.validateRefreshToken(refreshToken);
     if (!authId) {
       throw BusinessExceptionFactory.unauthorized('令牌刷新');
@@ -256,7 +250,7 @@ export class AuthService {
     // 获取认证信息
     const auth = await this.authRepository.findOne({
       where: { id: authId },
-      relations: { user: { roles: true } },
+      relations: { user: true },
     });
 
     if (!auth) {
@@ -300,42 +294,20 @@ export class AuthService {
   }
 
   /**
-   * 生成并缓存令牌响应
+   * 生成令牌响应（Access + Refresh，均为自校验 JWT）
    * @param auth 认证实体
    * @returns 令牌响应
    */
   private async issueTokenResponse(auth: Auth): Promise<TokenResponseDto> {
-    const userRoles = auth.user?.roles?.map((r) => r.name);
-    const roles = userRoles && userRoles.length > 0 ? userRoles : [SystemRoles.USER];
-
     const payload = {
       authId: auth.id,
       userId: auth.user?.id || auth.id,
       username: auth.username,
-      roles,
-      jti: uuid4(),
+      jti: crypto.randomUUID(),
     };
-
-    // 单点登录控制：检查并移除旧的令牌
-    const existingJti = await this.cacheService.get<string>(
-      `${CACHE_PREFIXES.USER_TOKENS}${auth.id}`,
-    );
-    if (existingJti) {
-      await this.addToBlacklist(auth.id, existingJti);
-    }
 
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = await this.generateRefreshToken(auth.id);
-
-    // 存储 UserToken 到缓存
-    await this.cacheService.set(`${CACHE_PREFIXES.USER_TOKENS}${auth.id}`, payload.jti, {
-      ttl: this.appConfig.jwtOptions.accessTokenTtl,
-    });
-
-    // 存储 RefreshToken 到缓存
-    await this.cacheService.set(`${CACHE_PREFIXES.REFRESH_TOKENS}${auth.id}`, refreshToken, {
-      ttl: this.appConfig.jwtOptions.refreshTokenTtl,
-    });
 
     return {
       accessToken,
@@ -355,7 +327,6 @@ export class AuthService {
    * @returns 包含用户ID、用户名、昵称、头像、角色、邮箱、性别、手机号等信息
    */
   async getAuthInfo(auth: CurrentUser): Promise<User> {
-    // 使用 UsersService 获取用户信息，利用其缓存机制
     if (auth.userId) {
       return await this.usersService.findById(auth.userId);
     }
@@ -407,179 +378,19 @@ export class AuthService {
       passwordChangedAt: new Date(),
     });
 
-    // 清除认证状态缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
-
     return { message: '密码修改成功' };
   }
 
   /**
    * 用户登出
    *
-   * 撤销用户的访问令牌和刷新令牌
+   * 精简版：服务端不再维护 Token 黑名单，登出由前端丢弃令牌完成。
+   * 此接口保留用于业务侧记录登出事件或后续扩展。
    *
    * @returns 登出结果
-   * @param token
    */
-  async logout(token: string): Promise<{ message: string }> {
-    const tokenPayload = this.jwtService.decode<
-      CurrentUser & { jti: string; exp: number; iat: number }
-    >(token);
-
-    if (!tokenPayload) {
-      throw BusinessExceptionFactory.unauthorized('令牌无效');
-    }
-
-    // 计算过期时间 (exp - iat 为总有效期，这里保持原逻辑)
-    const ttl = tokenPayload.exp - tokenPayload.iat;
-
-    await this.revokeUserSession(tokenPayload.authId, tokenPayload.jti, tokenPayload.userId, ttl);
-
+  async logout(_token: string): Promise<{ message: string }> {
     return { message: '退出登录成功' };
-  }
-
-  /**
-   * 获取所有当前登录用户
-   *
-   * @returns 当前在线的用户列表
-   */
-  async getActiveUsers(): Promise<Partial<User>[]> {
-    // 获取所有用户令牌键
-    const keys = await this.cacheService.keys(`${CACHE_PREFIXES.USER_TOKENS}*`);
-
-    if (!keys || keys.length === 0) {
-      return [];
-    }
-
-    // 从键中提取 authId
-    const authIds = keys.map((key) => {
-      return key.replace(CACHE_PREFIXES.USER_TOKENS, '');
-    });
-
-    if (authIds.length === 0) {
-      return [];
-    }
-
-    // 查询对应的用户信息
-    const auths = await this.authRepository.find({
-      where: { id: In(authIds) },
-      select: {
-        id: true,
-        username: true,
-        lastLoginAt: true,
-        user: {
-          id: true,
-          nickname: true,
-          roles: {
-            id: true,
-            alias: true,
-          },
-        },
-      },
-      relations: { user: { roles: true } },
-    });
-
-    // 提取并返回用户实体
-    return auths;
-  }
-
-  /**
-   * 踢出指定用户 (管理员操作)
-   *
-   * @param authId 认证ID
-   */
-  async kickOutUserById(authId: string): Promise<void> {
-    await this.revokeUserSession(authId);
-  }
-
-  /**
-   * 撤销用户会话
-   *
-   * 将当前令牌加入黑名单，并清除相关缓存
-   *
-   * @param authId 认证ID
-   * @param jti 令牌ID（可选，如果不提供则尝试从缓存获取）
-   * @param userId 用户ID（可选，用于清除用户资料缓存）
-   * @param blacklistTtl 黑名单过期时间（可选）
-   */
-  private async revokeUserSession(
-    authId: string,
-    jti?: string,
-    userId?: string,
-    blacklistTtl?: number,
-  ): Promise<void> {
-    // 1. 确定 JTI
-    let targetJti = jti;
-    targetJti ??=
-      (await this.cacheService.get<string>(`${CACHE_PREFIXES.USER_TOKENS}${authId}`)) ?? '';
-
-    // 2. 加入黑名单
-    if (targetJti) {
-      await this.addToBlacklist(authId, targetJti, blacklistTtl);
-    }
-
-    // 3. 清除 Token 缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.USER_TOKENS}${authId}`);
-    await this.cacheService.del(`${CACHE_PREFIXES.REFRESH_TOKENS}${authId}`);
-
-    // 4. 清除用户资料缓存（如果有 userId）
-    if (userId) {
-      await this.cacheService.del(`${CACHE_PREFIXES.USER_PROFILE}${userId}`);
-    }
-  }
-
-  /**
-   * 将令牌加入黑名单
-   *
-   * @param authId 认证ID
-   * @param jti 令牌ID
-   * @param ttl 过期时间（秒），默认使用 AccessToken 配置时间
-   */
-  private async addToBlacklist(authId: string, jti: string, ttl?: number): Promise<void> {
-    const finalTtl = ttl ?? this.appConfig.jwtOptions.accessTokenTtl;
-    await this.cacheService.set(
-      `${CACHE_PREFIXES.BLACKLIST}${authId}:${jti}`,
-      getCurrentTimestamp(),
-      {
-        ttl: finalTtl,
-      },
-    );
-  }
-
-  /**
-   * 获取认证状态信息（轻量级，无关联查询）
-   *
-   * 仅查询 Auth 表，用于快速检查账号状态、锁定情况和密码版本。
-   * 优先使用 Redis 缓存。
-   *
-   * @param authId 认证ID
-   * @returns 认证信息
-   */
-  async getAuthStatusById(authId: string): Promise<Auth> {
-    const cacheKey = `${CACHE_PREFIXES.AUTH_STATUS}${authId}`;
-    const cachedAuth = await this.cacheService.get<Auth>(cacheKey);
-    if (cachedAuth) {
-      return cachedAuth;
-    }
-
-    const auth = await this.authRepository.findOne({
-      where: { id: authId },
-      select: {
-        id: true,
-        status: true,
-        lockedAt: true,
-        loginAttempts: true,
-        passwordChangedAt: true,
-        lastLoginAt: true,
-      },
-    });
-
-    if (!auth) {
-      throw BusinessExceptionFactory.notFound('认证记录', { reason: `认证ID ${authId} 不存在` });
-    }
-
-    await this.cacheService.set(cacheKey, auth, { ttl: CACHE_TTL.AUTH_STATUS });
-    return auth;
   }
 
   /**
@@ -625,10 +436,6 @@ export class AuthService {
     const extraAttempts = Math.max(0, loginAttempts - maxLoginAttempts);
 
     // 指数退避计算: base * (2 ^ extraAttempts)
-    // 例如: max=5, base=30m
-    // attempts=5 -> extra=0 -> 30m
-    // attempts=6 -> extra=1 -> 60m
-    // attempts=7 -> extra=2 -> 120m
     const duration = baseDurationMs * Math.pow(2, extraAttempts);
 
     return Math.min(duration, maxDurationMs);
@@ -654,18 +461,20 @@ export class AuthService {
   }
 
   /**
-   * 生成刷新令牌
-   *
-   * 为指定认证ID生成新的刷新令牌
+   * 生成刷新令牌（自校验 JWT，无需服务端存储）
    *
    * @param authId 认证ID
    * @returns 刷新令牌字符串
    */
   private async generateRefreshToken(authId: string): Promise<string> {
-    const randomBytes = crypto.randomBytes(32);
-    const timestamp = getCurrentTimestamp().toString();
-    const payload = `${authId}:${timestamp}:${randomBytes.toString('hex')}`;
-    return Buffer.from(payload).toString('base64url');
+    return this.jwtService.signAsync(
+      { authId, timestamp: getCurrentTimestamp() },
+      {
+        secret: this.appConfig.jwtOptions.secret,
+        expiresIn: this.appConfig.jwtOptions.refreshTokenTtl,
+        algorithm: 'HS256',
+      },
+    );
   }
 
   /**
@@ -677,22 +486,15 @@ export class AuthService {
    * @returns 认证ID或null
    */
   private async validateRefreshToken(refreshToken: string): Promise<string | null> {
-    // 解码刷新令牌
-    const decoded = Buffer.from(refreshToken, 'base64url').toString();
-    const [authId] = decoded.split(':');
-
-    if (!authId) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{ authId: string }>(refreshToken, {
+        secret: this.appConfig.jwtOptions.secret,
+        algorithms: ['HS256'],
+      });
+      return payload.authId ?? null;
+    } catch {
       return null;
     }
-
-    // 验证是否与缓存中的令牌一致
-    const storedToken = await this.cacheService.get(`${CACHE_PREFIXES.REFRESH_TOKENS}${authId}`);
-
-    if (!storedToken || storedToken !== refreshToken) {
-      return null;
-    }
-
-    return authId;
   }
 
   /**
@@ -713,8 +515,6 @@ export class AuthService {
     await this.authRepository.update(authId, {
       lockedAt: new Date(),
     });
-    // 清除认证状态缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 
   /**
@@ -727,8 +527,6 @@ export class AuthService {
       loginAttempts: 0,
       lockedAt: undefined,
     });
-    // 清除认证状态缓存
-    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 
   /**
@@ -745,6 +543,5 @@ export class AuthService {
       updateData.lastLoginIp = clientIp;
     }
     await this.authRepository.update(authId, updateData);
-    await this.cacheService.del(`${CACHE_PREFIXES.AUTH_STATUS}${authId}`);
   }
 }

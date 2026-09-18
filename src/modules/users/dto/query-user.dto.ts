@@ -13,7 +13,6 @@ import { IsEnum, IsOptional, IsString } from 'class-validator';
  * - size: 每页数量
  * - nickname: 昵称模糊搜索
  * - email: 邮箱模糊搜索
- * - roles: 角色筛选
  * - status: 状态筛选
  */
 export class QueryUserDto {
@@ -52,15 +51,6 @@ export class QueryUserDto {
   @IsString()
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   email?: string;
-
-  @ApiPropertyOptional({
-    description: '角色筛选',
-    example: 'ADMIN',
-  })
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
-  roles?: string;
 
   @ApiPropertyOptional({
     description: '状态筛选',

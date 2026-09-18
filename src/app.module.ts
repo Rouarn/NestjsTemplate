@@ -27,16 +27,13 @@ import { JwtAuthGuard } from './common/guards';
 import { ResponseInterceptor } from './common/interceptors';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { CustomValidationPipe } from './common/pipes';
-import { PermissionsGuard, RolesGuard } from './modules/rbac/guards';
 // 配置模块导入
 import { ConfigModule as AppConfigModule, AppConfigService } from './config';
 // 业务模块导入
 import { DatabaseModule } from '@/database';
-import { CacheModule } from '@/shared/cache';
 import { FilesModule } from '@/shared/files/files.module';
 import { LoggerModule } from '@/shared/logger/logger.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { RbacModule } from './modules/rbac/rbac.module';
 import { UsersModule } from './modules/users/users.module';
 
 /**
@@ -83,9 +80,7 @@ import { UsersModule } from './modules/users/users.module';
     // 业务模块注册
     AuthModule, // 用户认证模块 (登录、注册、验证码)
     UsersModule, // 用户管理模块 (用户资料、状态管理、CRUD)
-    RbacModule, // RBAC 权限模块
     FilesModule, // 文件管理模块 (上传、下载、存储)
-    CacheModule, // 缓存模块 (Redis/内存缓存，支持装饰器)
   ],
 
   // =============================================================================
@@ -108,14 +103,6 @@ import { UsersModule } from './modules/users/users.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard, // JWT 认证守卫 (验证访问令牌)
-    },
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard, // 角色权限守卫 (验证用户角色) - 使用 RBAC 模块的 Guard
-    },
-    {
-      provide: APP_GUARD,
-      useClass: PermissionsGuard, // 权限守卫 (验证用户操作权限)
     },
 
     // =============================================================================

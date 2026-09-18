@@ -1,6 +1,5 @@
 import { DatabaseModule } from '@/database';
 import { Auth } from '@/modules/auth/entities/auth.entity';
-import { CacheModule } from '@/shared/cache';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
@@ -19,8 +18,6 @@ import { UsersService } from './users.service';
     TypeOrmModule.forFeature([User, Auth]),
     // 导入数据库模块，提供原生连接访问
     DatabaseModule,
-    // 导入缓存模块，支持用户信息缓存
-    CacheModule,
   ],
   controllers: [
     // 用户管理API控制器
