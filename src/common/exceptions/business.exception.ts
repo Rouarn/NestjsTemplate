@@ -7,7 +7,7 @@
  * 使用场景：服务端主动抛出可预期的错误（校验失败、权限不足、资源不存在、冲突等）。
  */
 import type { ErrorResponse } from '@/common/interfaces';
-import { formatTimestamp } from '@/utils';
+import { formatISOString } from '@/utils';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
 /**
@@ -38,7 +38,7 @@ export class BusinessException extends HttpException {
       message,
       data: details ?? {},
       success: false,
-      timestamp: formatTimestamp(),
+      timestamp: formatISOString(),
     };
     super(body, status);
     this.details = details;

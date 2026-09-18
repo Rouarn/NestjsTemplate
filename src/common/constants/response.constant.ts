@@ -1,5 +1,5 @@
 import type { PaginationParams, SuccessResponse } from '@/common/interfaces';
-import { formatTimestamp } from '@/utils';
+import { formatISOString } from '@/utils';
 
 /**
  * 成功响应常量
@@ -12,7 +12,7 @@ export const SUCCESS_RESPONSE: SuccessResponse = {
   message: '请求成功',
   data: null,
   success: true,
-  timestamp: formatTimestamp(),
+  timestamp: formatISOString(),
 };
 
 /**

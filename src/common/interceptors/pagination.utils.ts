@@ -1,12 +1,15 @@
 /**
  * 提取根对象中的 message 字段
  * @param raw 任意对象
- * @returns 可选的字符串或字符串数组消息
+ * @returns 可选的字符串消息
+ *
+ * 说明：成功响应路径下 message 约定为 string；
+ * string[]（多条校验提示）仅由异常过滤器处理，不在此透传。
  */
-export function extractRootMessage(raw: unknown): string | string[] | undefined {
+export function extractRootMessage(raw: unknown): string | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const msg = (raw as { message?: unknown }).message;
-  return typeof msg === 'string' || Array.isArray(msg) ? msg : undefined;
+  return typeof msg === 'string' ? msg : undefined;
 }
 
 /**

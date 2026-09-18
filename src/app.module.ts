@@ -24,7 +24,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HttpExceptionFilter } from './common/filters';
 import { JwtAuthGuard } from './common/guards';
-import { ResponseInterceptor } from './common/interceptors';
+import { LoggingInterceptor, ResponseInterceptor } from './common/interceptors';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { CustomValidationPipe } from './common/pipes';
 // 配置模块导入
@@ -107,7 +107,13 @@ import { UsersModule } from './modules/users/users.module';
 
     // =============================================================================
     // 全局拦截器 - 统一响应格式化和请求追踪
+    // 注册顺序：先注册的拦截器包裹在外层。
+    // LoggingInterceptor 在外层，可记录经过 ResponseInterceptor 格式化后的最终响应。
     // =============================================================================
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor, // 响应日志拦截器 (记录响应出口日志)
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor, // 响应格式化拦截器 (统一响应格式)

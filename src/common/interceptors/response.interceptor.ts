@@ -7,22 +7,12 @@ import {
   PaginatedResponse,
   PaginationParams,
 } from '@/common/interfaces';
-import { CurrentUser } from '@/common/interfaces/current-user.interface';
-import { formatTimestamp } from '@/utils';
+import { formatISOString } from '@/utils';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
-import { Inject, Injectable } from '@nestjs/common';
-import type { Request } from 'express';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Injectable } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import type { Logger } from 'winston';
 import { extractRootMessage, isPaginatedPayload, normalizePaginatedData } from './pagination.utils';
-
-// 扩展 Express 的 Request 接口，以包含自定义属性
-interface AppRequest extends Request {
-  user?: CurrentUser;
-  requestId?: string;
-}
 
 /**
  * 响应数据格式化拦截器（ResponseInterceptor）
@@ -31,13 +21,13 @@ interface AppRequest extends Request {
  */
 @Injectable()
 export class ResponseInterceptor<T = unknown> implements NestInterceptor {
-  constructor(@Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger) {}
-
   /**
    * 拦截并格式化响应数据
    * @param context 执行上下文，包含请求相关信息
    * @param next 调用处理器，用于继续执行后续逻辑
    * @returns 格式化后的响应数据流
+   *
+   * 说明：本拦截器仅负责数据格式化；响应日志由独立的 LoggingInterceptor 处理。
    */
   intercept(
     context: ExecutionContext,
@@ -45,7 +35,7 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
   ): Observable<IResponse<T> | PaginatedResponse<T>> {
     return next.handle().pipe(
       map((rawData: DeveloperResponse<T> | DeveloperPaginatedResponse<T>) => {
-        const request = context.switchToHttp().getRequest<AppRequest>();
+        const request = context.switchToHttp().getRequest();
         const paginationParams = this.extractPaginationParams(request);
         let response: IResponse<T> | PaginatedResponse<T>;
 
@@ -57,7 +47,7 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
           response = {
             code: SUCCESS_RESPONSE.code,
             message: message ?? SUCCESS_RESPONSE.message,
-            timestamp: formatTimestamp(),
+            timestamp: formatISOString(),
             data: paginatedData,
           };
         } else {
@@ -66,33 +56,10 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
           response = {
             code: SUCCESS_RESPONSE.code,
             message: message ?? SUCCESS_RESPONSE.message,
-            timestamp: formatTimestamp(),
+            timestamp: formatISOString(),
             data,
           } as IResponse<T>;
         }
-
-        this.logger.info('');
-        this.logger.info('┌─ 📤 响应出口 ───────────────────────────────────────────────────┐');
-        this.logger.info(`│ 🆔 请求 ID: ${request.requestId ?? ''}`);
-        this.logger.info(`│ 🔗 请求路由: ${request.url}`);
-        this.logger.info(`│ 🚀 请求方法: ${request.method}`);
-        const dataStr = JSON.stringify(response.data, null, 2);
-        const hasData = dataStr && dataStr !== '{}';
-        this.logger.info(`│ 📦 响应数据: ${hasData ? '' : '无'}`);
-        if (hasData) {
-          dataStr.split('\n').forEach((line) => {
-            this.logger.info(`│    ${line}`);
-          });
-        }
-
-        if (request.user) {
-          this.logger.info('├─ 👤 用户信息 ───────────────────────────────────────────────────┤');
-          this.logger.info(`│ 🆔 用户 ID: ${request.user.userId}`);
-          this.logger.info(`│ 👤 用户名: ${request.user.username}`);
-        }
-
-        this.logger.info('└─────────────────────────────────────────────────────────────────┘');
-        this.logger.info('');
 
         return response;
       }),
@@ -157,7 +124,7 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
   /**
    * 类型守卫：识别仅消息格式
    * 结构：{ message: string } 且不包含 data
-   * 说明：命中时返回空对象作为 data，并透传 message
+   * 说明：命中时返回 null 作为 data，并透传 message
    */
   private isMessageOnly(value: unknown): value is { message: string } {
     return (
@@ -176,16 +143,19 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
    * 支持：
    * - 直接返回数据：T
    * - 包装格式：{data: T, message?: string}
-   * - 仅消息：{message: string}（此时 data 为空对象）
+   * - 仅消息：{message: string}（此时 data 为 null）
    */
-  private extractDataAndMessage<T>(rawData: DeveloperResponse<T>): { data: T; message?: string } {
+  private extractDataAndMessage<T>(rawData: DeveloperResponse<T>): {
+    data: T | null;
+    message?: string;
+  } {
     if (this.isWrappedData<T>(rawData)) {
       const { data, message } = rawData;
       return { data, message };
     }
 
     if (this.isMessageOnly(rawData)) {
-      return { data: {} as T, message: rawData.message };
+      return { data: null, message: rawData.message };
     }
 
     return { data: rawData, message: undefined };
@@ -198,15 +168,15 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor {
    *
    * 识别路径：
    * - 根或包装结构中的 list/records/data 三种数组键与 total
-   * - 若根包含 message（string 或 string[]），作为响应消息返回
+   * - 若根包含 message（string），作为响应消息返回
    *
    * 返回：
    * - data: 统一归一化后的 { list, total }
-   * - message: string | string[] | undefined
+   * - message: string | undefined
    */
   private extractPaginatedDataAndMessage<T>(rawData: DeveloperPaginatedResponse<T>): {
     data: { list: T[]; total: number };
-    message?: string | string[];
+    message?: string;
   } {
     const rootMessage = extractRootMessage(rawData);
     const normalized = normalizePaginatedData<T>(rawData);

@@ -4,7 +4,7 @@
  * 建议在 `main.ts` 中通过 `app.useGlobalFilters(new HttpExceptionFilter())` 注册。
  */
 import type { ErrorResponse } from '@/common/interfaces';
-import { formatTimestamp } from '@/utils';
+import { formatISOString } from '@/utils';
 import {
   ArgumentsHost,
   Catch,
@@ -79,7 +79,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message,
       data,
       success: false,
-      timestamp: formatTimestamp(),
+      timestamp: formatISOString(),
       url: getUrl(request),
       path: request.path,
     };

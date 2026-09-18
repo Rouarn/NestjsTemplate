@@ -5,13 +5,17 @@ import type { HttpStatus } from '@nestjs/common';
  *
  * 标准响应结构：
  * - data: 业务数据
- * - message: 提示信息，支持 string 或 string[]
+ * - message: 提示信息（成功路径为 string）
  * - code: HTTP 状态码
- * - timestamp: 响应时间戳（字符串）
+ * - timestamp: 响应时间戳（ISO 8601 字符串，含时区）
+ *
+ * 泛型说明：
+ * - T: 业务数据类型
+ * - M: message 类型，默认为 string；错误响应可指定为 string | string[]
  */
-export interface IResponse<T = unknown> {
+export interface IResponse<T = unknown, M = string> {
   data: T;
-  message: string | string[];
+  message: M;
   code: HttpStatus;
   timestamp: string;
 }
@@ -25,8 +29,10 @@ export interface SuccessResponse<T = unknown> extends IResponse<T> {
 
 /**
  * 错误响应接口
+ *
+ * 说明：错误场景下 message 支持 string（单条）或 string[]（多条校验提示）。
  */
-export interface ErrorResponse extends IResponse {
+export interface ErrorResponse extends IResponse<unknown, string | string[]> {
   success: false;
   url?: string;
   path?: string;
