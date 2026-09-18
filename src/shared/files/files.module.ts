@@ -2,8 +2,13 @@ import { BusinessException } from '@/common/exceptions';
 import { AppConfigService, ConfigModule } from '@/config';
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
+import * as fs from 'fs/promises';
 import * as multer from 'multer';
+import * as os from 'os';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { FilesController } from './files.controller';
+import { STORAGE_ADAPTER } from './interfaces';
 import { FilesService } from './services/files.service';
 import { StorageService } from './services/storage.service';
 
@@ -15,18 +20,33 @@ import { StorageService } from './services/storage.service';
         const { uploadsMaxSize, uploadsMaxFiles, uploadsAllowedTypes } =
           appConfigService.staticAssetsOptions;
 
-        const allowedTypes = Array.isArray(uploadsAllowedTypes)
-          ? uploadsAllowedTypes
-          : uploadsAllowedTypes.split(',');
+        // 白名单为空表示不做类型限制（与 validation.schema 的约定一致）
+        const allowedTypes = uploadsAllowedTypes
+          .split(',')
+          .map((type) => type.trim())
+          .filter(Boolean);
+
+        // 临时目录放在系统临时目录下，与对外提供服务的静态资源目录隔离，
+        // 使校验未通过的文件不会进入可访问目录
+        const tempDir = path.join(os.tmpdir(), 'nestjs-upload');
+        await fs.mkdir(tempDir, { recursive: true });
 
         return {
-          storage: multer.memoryStorage(),
+          // 磁盘流式存储：上传期间文件不常驻 Node 内存
+          storage: multer.diskStorage({
+            destination: (_req, _file, callback) => {
+              callback(null, tempDir);
+            },
+            filename: (_req, _file, callback) => {
+              callback(null, `${uuidv4()}.tmp`);
+            },
+          }),
           limits: {
             fileSize: uploadsMaxSize,
             files: uploadsMaxFiles,
           },
           fileFilter: (_req, file, callback) => {
-            if (!allowedTypes.includes(file.mimetype)) {
+            if (allowedTypes.length > 0 && !allowedTypes.includes(file.mimetype)) {
               return callback(
                 BusinessException.badRequest(
                   `不支持的文件类型: ${file.mimetype}。 允许的类型: ${allowedTypes.join(', ')}`,
@@ -42,7 +62,11 @@ import { StorageService } from './services/storage.service';
     }),
   ],
   controllers: [FilesController],
-  providers: [FilesService, StorageService],
-  exports: [FilesService, StorageService],
+  providers: [
+    FilesService,
+    // 面向接口 token 绑定，更换存储后端时只需改这一处
+    { provide: STORAGE_ADAPTER, useClass: StorageService },
+  ],
+  exports: [FilesService, STORAGE_ADAPTER],
 })
 export class FilesModule {}

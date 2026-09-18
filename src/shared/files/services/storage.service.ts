@@ -11,8 +11,10 @@ export class StorageService implements StorageAdapter {
 
   constructor(private appConfigService: AppConfigService) {
     const staticConfig = this.appConfigService.staticAssetsOptions;
-    // 使用配置中的 uploadsPath
-    this.basePath = staticConfig.root;
+    // 与 main.ts 的静态资源解析保持一致：相对路径基于 process.cwd() 解析为绝对路径
+    this.basePath = path.isAbsolute(staticConfig.root)
+      ? staticConfig.root
+      : path.resolve(process.cwd(), staticConfig.root);
     void this.ensureUploadDirectory();
   }
 
@@ -25,12 +27,12 @@ export class StorageService implements StorageAdapter {
   }
 
   /**
-   * 上传文件到本地存储
-   * @param file 文件对象
+   * 将源文件移动到本地存储
+   * @param sourcePath 源文件绝对路径 (Multer 磁盘存储的临时文件)
    * @param relativePath 相对路径 (如 2024/03/uuid.jpg)
    * @returns 存储后的相对路径
    */
-  async upload(file: Express.Multer.File, relativePath: string): Promise<string> {
+  async upload(sourcePath: string, relativePath: string): Promise<string> {
     const fullPath = path.join(this.basePath, relativePath);
     const directory = path.dirname(fullPath);
 
@@ -38,12 +40,21 @@ export class StorageService implements StorageAdapter {
       // 确保子目录存在 (YYYY/MM)
       await fs.mkdir(directory, { recursive: true });
 
-      // 写入文件
-      await fs.writeFile(fullPath, file.buffer);
+      // 优先使用 rename（同盘时几乎零成本）；临时目录与目标目录可能不在同一磁盘，
+      // 此时 rename 会抛 EXDEV，回退为复制后删除源文件
+      try {
+        await fs.rename(sourcePath, fullPath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EXDEV') {
+          throw error;
+        }
+        await fs.copyFile(sourcePath, fullPath);
+        await fs.unlink(sourcePath);
+      }
 
       return relativePath.replace(/\\/g, '/'); // 统一使用正斜杠
     } catch (error) {
-      this.logger.error(`文件存储失败: ${file.originalname}`, error);
+      this.logger.error(`文件存储失败: ${sourcePath}`, error);
       throw error;
     }
   }

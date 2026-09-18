@@ -55,6 +55,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let data: unknown = {};
     if (isHttpException) {
       ({ message, data } = extractErrorPayload(exception));
+
+      // 路由未匹配时 Nest 默认抛英文 `Cannot ${method} ${url}`；异常到达过滤器时
+      // request.url 可能已被剥除全局前缀，与 message 中的 URL 不一致，
+      // 故仅按「Cannot + 方法」前缀宽松匹配（业务文案不会以此开头，无误伤）
+      if (
+        status === HttpStatus.NOT_FOUND &&
+        typeof message === 'string' &&
+        message.startsWith(`Cannot ${request.method} `)
+      ) {
+        message = '接口不存在';
+      }
+
+      // 请求体 JSON 解析失败时 body-parser 抛英文内部错误，统一为友好提示
+      if (
+        status === HttpStatus.BAD_REQUEST &&
+        typeof message === 'string' &&
+        (message.includes('in JSON at position') ||
+          message.includes('Unexpected token') ||
+          message.includes('Unexpected end of JSON'))
+      ) {
+        message = '请求体 JSON 格式错误';
+      }
     }
 
     // 结构化错误日志；未知异常额外记录名称与堆栈，便于排查
@@ -73,6 +95,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       logData.errorMessage = err?.message;
       logData.stack = err?.stack;
     }
+    // 响应已开始写出（如流式传输中途失败）时无法再改写响应头，跳过写入避免二次异常
+    if (response.headersSent) {
+      logData.responseIgnored = true;
+    }
 
     const logLabel = isHttpException ? 'HttpException' : 'UncaughtException';
     if (status >= 500) {
@@ -80,6 +106,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     } else {
       this.logger.warn(logLabel, logData);
     }
+
+    if (response.headersSent) return;
 
     // 统一的错误响应体；不向客户端返回堆栈等内部信息
     const body: ErrorResponse = {

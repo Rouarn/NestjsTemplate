@@ -1,15 +1,16 @@
 # 文件上传系统 (src/shared/files)
 
-该模块提供了一个通用的文件上传系统，支持单文件和多文件上传，具备文件类型和大小校验功能，并采用存储适配器模式，方便未来扩展不同的存储后端（如 OSS、S3 等）。
+该模块提供通用的文件上传能力，支持单文件和多文件上传，采用磁盘流式存储与多层校验，并通过存储适配器 + DI token 抽象存储后端，方便未来扩展到 OSS、S3 等。
 
 ## 核心特性
 
-- **单/多文件上传**：支持通过 `multipart/form-data` 协议上传单个或多个文件。
-- **自动文件名生成**：使用 UUID 生成唯一文件名，防止重名冲突。
-- **目录自动化管理**：按日期（`YYYY/MM`）自动组织存储目录，提高文件检索效率。
-- **存储适配器模式**：通过 `StorageAdapter` 接口抽象存储操作，默认实现为本地文件系统存储。
-- **内置校验**：提供 `FileValidationPipe` 校验文件后缀名和大小。
-- **Swagger 集成**：所有接口均已集成 Swagger 文档，支持在线调试。
+- **单/多文件上传**：通过 `multipart/form-data` 上传，字段名分别为 `file` 与 `files`。
+- **磁盘流式存储**：Multer 使用 `diskStorage` 直接写入临时文件，上传期间文件不常驻 Node 内存。
+- **内容级类型校验**：基于文件内容（magic number）检测真实类型，不信任客户端声明的 mimetype 与原始文件名。
+- **自动文件名生成**：UUID + 内容检测出的真实扩展名；按日期（`YYYY/MM`）组织目录。
+- **临时目录隔离**：未通过校验的文件留在系统临时目录中，永远不会进入对外服务的静态资源目录。
+- **存储适配器模式**：通过 `StorageAdapter` 接口与 `STORAGE_ADAPTER` token 解耦，默认实现为本地磁盘。
+- **Swagger 集成**：接口均已集成 Swagger 文档，支持在线调试。
 
 ## 目录结构
 
@@ -17,29 +18,41 @@
 src/shared/files/
 ├── dto/                    # 数据传输对象 (FileUploadResponseDto)
 ├── guards/                 # 预检守卫 (FileUploadGuard)
-├── interfaces/             # 接口定义 (StorageAdapter)
-├── services/               # 业务逻辑与存储服务
-│   ├── files.service.ts    # 文件处理逻辑 (重命名、路径生成)
-│   └── storage.service.ts  # 本地存储实现
+├── interfaces/             # StorageAdapter 接口与 STORAGE_ADAPTER token
+├── services/
+│   ├── files.service.ts    # 内容校验、重命名、路径生成
+│   └── storage.service.ts  # 本地磁盘存储实现
 ├── files.controller.ts     # 上传接口定义
-└── files.module.ts         # 模块配置 (Multer 异步注册)
+└── files.module.ts         # 模块配置 (Multer 异步注册、适配器绑定)
 ```
 
-## 拦截机制
+## 上传流程
 
-系统采用多层拦截机制，确保非法请求能尽早被拒绝：
+请求依次经过以下环节，非法请求会尽早被拒绝：
 
-1. **第一层：FileUploadGuard (Guard)**
-   - 检查 `Content-Length` 请求头。
-   - 如果声明的大小超过配置限制，直接拒绝（不接收数据体）。
-2. **第二层：Multer fileFilter (Interceptor)**
-   - 在 Multipart 解析过程中检查 `mimetype`。
-   - 如果类型不支持，立即中断传输。
-3. **第三层：Controller 逻辑**
-   - 最终确认文件对象是否存在。
-   - 由 Multer 的 `limits.fileSize` 进行最终的字节级精确校验。
+1. **FileUploadGuard（Guard，接收请求体之前）**
+   - 校验 `Content-Type` 必须为 `multipart/form-data`。
+   - 按目标接口计算总量限额并校验 `Content-Length`：单文件接口按 1 个文件计，多文件接口按 `uploadsMaxFiles` 个文件的总量计，并为每文件预留 64KB 的 multipart 协议开销。
+   - 使用 chunked 编码、不带 `Content-Length` 的请求会跳过本层，最终限制仍由 Multer `limits` 强制执行。
+2. **Multer fileFilter（解析 multipart 期间）**
+   - 检查声明的 `mimetype` 是否在白名单内，不通过则立即中断传输。
+3. **Multer diskStorage（流式落盘）**
+   - 文件以 `uuid.tmp` 写入系统临时目录（`os.tmpdir()/nestjs-upload`）。
+4. **FilesService（Controller 调用）**
+   - 用 `file-type` 基于文件内容检测真实类型；检测失败、与声明类型不一致或不在白名单内均拒绝请求。
+   - 生成 `YYYY/MM/uuid.真实扩展名` 目标路径，调用适配器将临时文件移动到静态资源目录。
+   - 校验或存储失败时自动删除临时文件，避免残留。
+5. **静态资源访问**
+   - 文件通过配置的静态资源前缀（如 `/static`）对外提供访问。
 
-### 响应示例
+## 接口与响应
+
+| 接口               | 方法 | 字段名  | 说明                                        |
+| ------------------ | ---- | ------- | ------------------------------------------- |
+| `/upload`          | POST | `file`  | 单文件上传                                  |
+| `/upload/multiple` | POST | `files` | 多文件上传（数量受 `uploadsMaxFiles` 限制） |
+
+响应示例：
 
 ```json
 {
@@ -50,16 +63,21 @@ src/shared/files/
 
 ## 配置说明
 
-文件上传的相关限制可在 `ConfigService` 中进行配置：
+配置项位于环境变量（经 `AppConfigService.staticAssetsOptions` 读取）：
 
-- `app.uploadsMaxSize`: 单个文件的最大字节数（默认 10MB）。
-- `app.uploadsMaxFiles`: 多文件上传时的最大文件数量（默认 10 个）。
-- `staticAssetsOptions.root`: 本地存储的根路径。
-- `staticAssetsOptions.prefix`: 静态资源访问的前缀（如 `/static`）。
+- `NEST_UPLOAD_MAX_SIZE`：单个文件最大字节数（默认 10MB）。
+- `NEST_UPLOAD_MAX_FILES`：多文件上传的最大数量（默认 10）。
+- `NEST_UPLOAD_ALLOWED_TYPES`：允许的 mimetype 白名单，逗号分隔（如 `image/jpeg,image/png,application/pdf`）；**留空表示不限制类型**。
+- `NEST_STATIC_ASSETS_DIR`：本地存储根路径（相对路径基于 `process.cwd()` 解析）。
+- `NEST_STATIC_ASSETS_PREFIX`：静态资源访问前缀（如 `/static`）。
 
 ## 存储扩展
 
-若需更换存储引擎（例如阿里云 OSS），只需：
+更换存储引擎（例如阿里云 OSS）只需两步，业务代码无需改动：
 
-1. 实现 `StorageAdapter` 接口。
-2. 在 `FilesModule` 中将 `StorageService` 替换为新的实现类，或在 `StorageService` 中注入新的驱动。
+1. 新建类实现 `StorageAdapter` 接口（`upload` / `download` / `delete` / `exists` / `getUrl`）。
+2. 在 `files.module.ts` 中把绑定改为新实现：
+
+   ```ts
+   { provide: STORAGE_ADAPTER, useClass: OssStorageService }
+   ```

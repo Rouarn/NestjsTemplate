@@ -22,6 +22,8 @@ export class LoggerMiddleware implements NestMiddleware {
 
     // 将 requestId 附加到请求对象，以便在其他地方（如拦截器）访问
     req.requestId = requestId;
+    // 回传请求 ID 响应头，便于客户端报障时与服务端日志关联
+    res.setHeader('X-Request-Id', requestId);
 
     // 1. 打印 "请求入口" (立即执行)
     this.logger.info('');
