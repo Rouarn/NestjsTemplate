@@ -44,10 +44,10 @@ export default registerAs('app', (): AppConfig => {
 
     // API 版本控制配置
     api: {
-      prefix: getEnvVar('API_PREFIX', 'api'),
-      version: getEnvVar('API_DEFAULT_VERSION', '1'),
-      type: getEnvVar('API_VERSIONING_TYPE', 'header'),
-      header: getEnvVar('API_VERSIONING_HEADER', 'X-Api-Version'),
+      prefix: getEnvVar('NEST_API_PREFIX', 'api'),
+      version: getEnvVar('NEST_API_DEFAULT_VERSION', '1'),
+      type: getEnvVar('NEST_API_VERSIONING_TYPE', 'header'),
+      header: getEnvVar('NEST_API_VERSIONING_HEADER', 'X-Api-Version'),
     },
 
     // JWT 认证配置
