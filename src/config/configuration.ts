@@ -81,14 +81,12 @@ export default registerAs('app', (): AppConfig => {
     // CORS 跨域配置
     cors: {
       origin: getEnvVar('NEST_CORS_ORIGINS', []),
-      credentials: true,
     },
 
     // Swagger API 文档配置
     swagger: {
       title: getEnvVar('NEST_SWAGGER_TITLE', 'API Documentation'),
       description: getEnvVar('NEST_SWAGGER_DESCRIPTION', 'API文档'),
-      version: getEnvVar('NEST_SWAGGER_VERSION', '1.0'),
       prefix: getEnvVar('NEST_SWAGGER_PREFIX', '/api-docs'),
       filename: getEnvVar('NEST_SWAGGER_FILENAME', 'api-docs.json'),
       enabled: environment !== 'production',
@@ -110,12 +108,6 @@ export default registerAs('app', (): AppConfig => {
       },
       synchronize: getEnvVar('NEST_DATABASE_SYNCHRONIZE', environment === 'development'),
       logging: getEnvVar('NEST_DATABASE_LOGGING', false),
-      logNotifications: false,
-      extra: {
-        connectionLimit: 10,
-        acquireTimeout: 60000,
-        timeout: 60000,
-      },
     },
 
     // 日志配置

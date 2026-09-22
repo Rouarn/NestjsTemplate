@@ -43,14 +43,12 @@ export interface StaticConfig {
 // CORS 跨域配置
 export interface CorsConfig {
   origin: string[];
-  credentials: boolean;
 }
 
 // Swagger API 文档配置
 export interface SwaggerConfig {
   title: string;
   description: string;
-  version: string;
   prefix: string;
   filename: string;
   enabled: boolean;
@@ -72,12 +70,6 @@ export interface DatabaseConfig {
   };
   synchronize: boolean;
   logging: boolean;
-  logNotifications: boolean;
-  extra: {
-    connectionLimit: number;
-    acquireTimeout: number;
-    timeout: number;
-  };
 }
 
 // API 版本控制配置

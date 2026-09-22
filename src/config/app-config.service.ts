@@ -39,10 +39,6 @@ export class AppConfigService {
     return this.configService.get<string>('app.baseUrl')!;
   }
 
-  get isDevelopment(): boolean {
-    return this.environment === 'development';
-  }
-
   get isProduction(): boolean {
     return this.environment === 'production';
   }

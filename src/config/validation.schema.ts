@@ -17,8 +17,8 @@ export const validationSchema = Joi.object({
   NEST_STATIC_ASSETS_PREFIX: Joi.string().default('/static'), // 静态资源访问前缀
 
   // 文件上传配置
-  NEST_STATIC_UPLOAD_PATH: Joi.string().default('./uploads'), // 文件上传存储路径
   NEST_UPLOAD_ALLOWED_TYPES: Joi.string().default(''), // 空字符串表示允许所有类型
+  NEST_UPLOAD_MAX_SIZE: Joi.number().default(10 * 1024 * 1024), // 单个文件最大大小，默认 10MB
   NEST_UPLOAD_MAX_FILES: Joi.number().default(10), // 同时最大上传文件数量
 
   // API 版本控制配置
@@ -39,7 +39,6 @@ export const validationSchema = Joi.object({
   // Swagger API 文档配置
   NEST_SWAGGER_TITLE: Joi.string().default('API Documentation'),
   NEST_SWAGGER_DESCRIPTION: Joi.string().default('API文档'),
-  NEST_SWAGGER_VERSION: Joi.string().default('1.0'),
   NEST_SWAGGER_PREFIX: Joi.string().default('/api-docs'),
   NEST_SWAGGER_FILENAME: Joi.string().default('api-docs.json'),
 
@@ -52,6 +51,8 @@ export const validationSchema = Joi.object({
   NEST_DATABASE_USER: Joi.string().required(),
   NEST_DATABASE_PASSWORD: Joi.string().required(),
   NEST_DATABASE_NAME: Joi.string().required(),
+  NEST_DATABASE_LOGGING: Joi.boolean().default(false), // 是否启用数据库日志
+  NEST_DATABASE_SYNCHRONIZE: Joi.boolean().default(false), // 是否自动同步数据库结构 (仅开发环境建议开启)
   NEST_DATABASE_TABLE_PREFIX: Joi.string().allow('').optional().default('ra_'),
   NEST_DATABASE_ENABLE_TIMESTAMPS: Joi.boolean().default(true),
   NEST_DATABASE_CREATED_AT: Joi.string().default('createdAt'),
