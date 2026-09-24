@@ -61,6 +61,7 @@ try {
     scripts: {
       start: 'cross-env NODE_ENV=production node dist/main.js',
       'start:simple': 'node dist/main.js',
+      'db:init': 'node scripts/init-db.js --env=production',
     },
     dependencies: {
       // 从原始 package.json 复制所有生产依赖
@@ -94,6 +95,14 @@ try {
       fs.copyFileSync(srcEnv, destEnv);
     }
   }
+
+  // 复制数据库初始化脚本（SQL 全在脚本内，仅依赖 mysql2）
+  fs.mkdirSync(path.join(deployPath, 'scripts'), { recursive: true });
+  fs.copyFileSync(
+    path.join(projectRoot, 'scripts', 'init-db.js'),
+    path.join(deployPath, 'scripts', 'init-db.js'),
+  );
+  log('复制数据库初始化脚本: scripts/init-db.js', 'copy');
 
   // 创建启动脚本 (Windows)
   const startScriptWin = `@echo off

@@ -25,6 +25,7 @@
     "deploy:build": "node scripts/deploy.js",
     "deploy": "pnpm run code:fix && pnpm run deploy:build",
     "g:res": "node scripts/generate-resource.js",
+    "db:init": "node scripts/init-db.js",
     "prepare": "husky"
   },
   "dependencies": {
