@@ -1,82 +1,46 @@
 #!/usr/bin/env node
 
 import { handleError, log, separator, showBanner, showSuccess } from '@vakao-ui/scripts-utils';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * 部署脚本 - 准备生产环境部署文件
+ * 部署脚本 - 清理、编译、准备生产环境部署文件
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
-const distPath = path.join(projectRoot, 'dist');
+const distPath = path.join(projectRoot, 'deploy', 'dist');
 const deployPath = path.join(projectRoot, 'deploy');
-
-function sleep(ms) {
-  try {
-    const sab = new SharedArrayBuffer(4);
-    const ia = new Int32Array(sab);
-    Atomics.wait(ia, 0, 0, ms);
-  } catch (_) {
-    const end = Date.now() + ms;
-    while (Date.now() < end) {}
-  }
-}
-
-function removeDirRobust(targetPath, maxRetries = 5) {
-  if (!fs.existsSync(targetPath)) return;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      fs.rmSync(targetPath, { recursive: true, force: true });
-      if (!fs.existsSync(targetPath)) return;
-    } catch (err) {
-      // 尝试解锁只读/占用文件并逐个清理
-      try {
-        const entries = fs.readdirSync(targetPath, { withFileTypes: true });
-        for (const entry of entries) {
-          const p = path.join(targetPath, entry.name);
-          try {
-            fs.chmodSync(p, 0o666);
-          } catch (_) {}
-          try {
-            if (entry.isDirectory()) {
-              removeDirRobust(p, 0);
-            } else {
-              fs.unlinkSync(p);
-            }
-          } catch (_) {}
-        }
-      } catch (_) {}
-      if (attempt === maxRetries) throw err;
-      sleep(200 * (attempt + 1));
-    }
-  }
-}
 
 try {
   showBanner('NestJS 部署工具');
   log('开始准备部署文件...', 'deploy');
   separator('─', 50);
 
-  // 检查 dist 目录是否存在
-  if (!fs.existsSync(distPath)) {
-    throw new Error('dist 目录不存在，请先运行 npm run build:prod');
-  }
-
-  // 创建部署目录
+  // 清理整个 deploy 目录，确保产物为最新
   if (fs.existsSync(deployPath)) {
     log('清理旧的部署目录...', 'clean');
-    removeDirRobust(deployPath);
+    fs.rmSync(deployPath, { recursive: true, force: true });
+  }
+  fs.mkdirSync(deployPath, { recursive: true });
+
+  // 编译项目（tsconfig.json outDir 为 ./deploy/dist）
+  log('编译项目...', 'build');
+  execSync('npx nest build', {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    env: { ...process.env, NODE_ENV: 'production' },
+  });
+
+  // 验证编译输出
+  if (!fs.existsSync(distPath)) {
+    throw new Error('编译失败：deploy/dist 目录不存在');
   }
 
-  fs.mkdirSync(deployPath, { recursive: true });
-  log(`创建部署目录: ${deployPath}`, 'deploy');
-
-  // 移动 dist 目录
-  log('移动 dist 目录...', 'move');
-  fs.renameSync(distPath, path.join(deployPath, 'dist'));
+  log(`部署目录: ${deployPath}`, 'deploy');
 
   // 动态生成生产环境 package.json
   log('生成生产环境 package.json...', 'build');
@@ -93,7 +57,7 @@ try {
     private: originalPackageJson.private,
     license: originalPackageJson.license,
     type: originalPackageJson.type,
-    imports: originalPackageJson.imports,
+    imports: { '#/*': './dist/*' },
     scripts: {
       start: 'cross-env NODE_ENV=production node dist/main.js',
       'start:simple': 'node dist/main.js',
@@ -204,10 +168,12 @@ echo "依赖安装完成！"
 
 ## 📦 部署包内容
 
-- **应用文件**: 编译后的 NestJS 应用代码
+- **dist/**: 编译后的 NestJS 应用代码（请勿修改）
+- **logs/**: 应用运行日志目录
+- **static/**: 静态资源与文件上传目录
 - **配置文件**: .env.production 环境配置
 - **启动脚本**: 适用于不同平台的启动脚本
-- **依赖文件**: package.json 和 package-lock.json
+- **依赖文件**: package.json
 
 ## 🚀 快速部署
 
@@ -254,7 +220,7 @@ echo "依赖安装完成！"
 3. 进入「网站」→「Node项目」→「添加Node项目」
 4. 配置项目信息：
    - **项目路径**: 选择部署目录
-   - **启动文件**: app.js
+   - **启动文件**: start-app-BT.js
    - **端口**: 8848（或其他可用端口）
    - **项目名称**: 自定义名称
 5. 点击「提交」创建项目
@@ -269,7 +235,7 @@ echo "依赖安装完成！"
 
 2. **启动应用**
    \`\`\`bash
-   pm2 start app.js --name nestjs-app
+   pm2 start start-app-BT.js --name nestjs-app
    \`\`\`
 
 3. **设置开机自启**
@@ -291,7 +257,7 @@ echo "依赖安装完成！"
 ### 端口配置
 
 - **默认端口**: 8848
-- **修改端口**: 编辑 .env.production 文件中的 PORT 变量
+- **修改端口**: 编辑 .env.production 文件中的 NEST_PORT 变量
 - **防火墙**: 确保已开放相应端口
 
 ### 环境变量
@@ -300,27 +266,33 @@ echo "依赖安装完成！"
 
 \`\`\`env
 # 应用端口
-PORT=8848
+NEST_PORT=8848
 
 # 数据库配置
-DB_HOST=localhost
-DB_PORT=3306
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
-DB_DATABASE=your_database
+NEST_DATABASE_HOST=127.0.0.1
+NEST_DATABASE_PORT=13306
+NEST_DATABASE_USER=your_username
+NEST_DATABASE_PASSWORD=your_password
+NEST_DATABASE_NAME=your_database
 
 # JWT 配置
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRES_IN=7d
+NEST_JWT_SECRET=your_jwt_secret
 
-# 其他配置...
+# 静态资源
+NEST_STATIC_ASSETS_DIR=./static
+NEST_STATIC_ASSETS_PREFIX=/static
+
+# 日志配置
+NEST_LOGGER_DIR=./logs
+NEST_LOGGER_LEVEL=info
 \`\`\`
 
 ## 🔧 系统要求
 
 ### 基础环境
 - **Node.js**: >= 22.18.0
-- **npm**: >= 8.0.0
+- **npm**: >= 10.9.0
+- **pnpm**: >= 10.15.0
 - **操作系统**: Windows 10+, Linux (Ubuntu 18.04+, CentOS 7+)
 
 ### 硬件要求
@@ -468,7 +440,7 @@ journalctl -u your-service-name
   log(`部署目录: ${deployPath}`, 'info');
   log('接下来的步骤:', 'check');
   log('1. 将 deploy 目录上传到服务器', 'check');
-  log('2. 在服务器运行: npm install --production', 'check');
+  log('2. 在服务器运行: npm install --omit=dev', 'check');
   log('3. 配置环境变量并启动应用', 'check');
   separator('═', 50);
 } catch (err) {

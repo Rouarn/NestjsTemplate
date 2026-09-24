@@ -22,8 +22,7 @@
     "update:latest": "pnpm update --latest",
     "update:interactive": "pnpm update --interactive",
     "clean:tests": "node scripts/remove-spec-files.js",
-    "deploy:prepare": "node scripts/deploy.js",
-    "deploy:build": "pnpm run build:prod && pnpm run deploy:prepare",
+    "deploy:build": "node scripts/deploy.js",
     "deploy": "pnpm run code:fix && pnpm run deploy:build",
     "g:res": "node scripts/generate-resource.js",
     "prepare": "husky"
@@ -90,7 +89,7 @@
     "pnpm": ">=10.15.0"
   },
   "imports": {
-    "#/*": "./dist/*"
+    "#/*": "./deploy/dist/*"
   },
   "lint-staged": {
     "*.{ts,tsx,js}": [
