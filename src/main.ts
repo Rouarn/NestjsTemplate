@@ -7,6 +7,7 @@
  * @version 1.0.0
  */
 
+import 'reflect-metadata';
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
