@@ -1,5 +1,6 @@
 import {
   Body,
+  ClassSerializerInterceptor,
   Controller,
   Delete,
   Get,
@@ -8,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -35,6 +37,7 @@ import { UsersService } from './users.service.js';
  * 精简说明：移除了细粒度权限装饰器，接口受全局 JWT 认证守卫保护（登录即可访问）。
  */
 @ApiTags('用户管理')
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 @ApiBearerAuth()
 export class UsersController {
@@ -100,7 +103,7 @@ export class UsersController {
     status: HttpStatus.CONFLICT,
     description: '邮箱已被使用',
   })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<void> {
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<User> {
     return await this.usersService.update(id, updateUserDto);
   }
 

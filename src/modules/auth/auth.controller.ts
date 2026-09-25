@@ -8,11 +8,9 @@ import {
   Ip,
   Post,
   Put,
-  Req,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
 import { User } from '../users/entities/user.entity.js';
 import { AuthService } from './auth.service.js';
 import {
@@ -22,7 +20,7 @@ import {
 } from './dto/captcha.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ChangePasswordDto } from './dto/password.dto.js';
-import { AuthCreateUserResponse, RegisterDto, RegisterResponseDto } from './dto/register.dto.js';
+import { AuthCreateUserResponse, RegisterDto } from './dto/register.dto.js';
 import { RefreshTokenDto, TokenResponseDto } from './dto/token.dto.js';
 
 /**
@@ -85,7 +83,7 @@ export class AuthController {
     description: '注册请求',
     type: RegisterDto,
   })
-  @ApiResponse({ status: 200, description: '注册结果', type: RegisterResponseDto })
+  @ApiResponse({ status: 200, description: '注册结果', type: AuthCreateUserResponse })
   @Public()
   @Post('register')
   register(@Body() body: RegisterDto): Promise<AuthCreateUserResponse> {
@@ -124,7 +122,7 @@ export class AuthController {
    */
   @ApiOperation({
     summary: '刷新令牌',
-    description: '使用刷新令牌获取新的访问令牌，并进行刷新令牌轮换',
+    description: '使用有效的刷新令牌获取新的访问令牌（无状态 JWT，刷新令牌在过期前始终有效）',
   })
   @ApiBody({
     description: '刷新令牌请求',
@@ -196,8 +194,7 @@ export class AuthController {
     description: '未授权访问',
   })
   @Post('logout')
-  async logout(@Req() req: Request): Promise<{ message: string }> {
-    const token = req.headers.authorization?.split(' ')[1] ?? '';
-    return this.authService.logout(token);
+  logout(): Promise<{ message: string }> {
+    return this.authService.logout();
   }
 }

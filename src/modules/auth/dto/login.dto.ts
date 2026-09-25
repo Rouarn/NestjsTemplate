@@ -11,17 +11,17 @@ import { IsNotEmpty, IsString, Length } from 'class-validator';
  * 字段说明：
  * - username: 用户名（必填）
  * - password: 密码（必填）
- * - captchaToken: 验证码令牌（可选）
- * - captchaCode: 验证码（可选）
+ * - captchaToken: 验证码令牌（必填）
+ * - captchaCode: 验证码（必填）
  *
  * 验证规则：
  * - username: 3-20个字符
  * - password: 6-50个字符
- * - captchaCode: 4-6个字符（如果提供）
+ * - captchaCode: 4-6个字符
  *
  * 安全特性：
  * - 密码字段不会在响应中返回
- * - 支持验证码验证
+ * - 强制验证码校验，令牌由服务端签名并带有效期
  */
 export class LoginDto {
   @ApiProperty({
@@ -47,4 +47,25 @@ export class LoginDto {
   @Length(6, 50, { message: '密码长度必须在6-50个字符之间' })
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   password!: string;
+
+  @ApiProperty({
+    description: '验证码令牌',
+    example: 'eyJhbGciOiJIUzI1NiJ9.signature',
+  })
+  @IsString({ message: '验证码令牌必须是字符串' })
+  @IsNotEmpty({ message: '验证码令牌不能为空' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  captchaToken!: string;
+
+  @ApiProperty({
+    description: '验证码',
+    example: 'ABCD',
+    minLength: 4,
+    maxLength: 6,
+  })
+  @IsString({ message: '验证码必须是字符串' })
+  @IsNotEmpty({ message: '验证码不能为空' })
+  @Length(4, 6, { message: '验证码长度必须在4-6个字符之间' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  captchaCode!: string;
 }

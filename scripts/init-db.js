@@ -12,10 +12,10 @@
  * 依赖: 仅 mysql2（项目已安装），无需其他任何包
  */
 
+import mysql from 'mysql2/promise';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import mysql from 'mysql2/promise';
 
 // 解析参数
 const nodeEnv =
@@ -54,8 +54,7 @@ const createAuthTable = `
 CREATE TABLE IF NOT EXISTS \`${prefix}auth\` (
   \`id\` VARCHAR(36) NOT NULL COMMENT '认证ID',
   \`username\` VARCHAR(100) NOT NULL COMMENT '用户名',
-  \`password\` VARCHAR(255) NOT NULL COMMENT '密码',
-  \`salt\` VARCHAR(100) NULL DEFAULT NULL COMMENT '盐',
+  \`password\` VARCHAR(255) NOT NULL COMMENT '密码（bcrypt 哈希内嵌盐值）',
   \`status\` TINYINT NOT NULL DEFAULT 1 COMMENT '认证状态: 0-禁用, 1-启用',
   \`last_login_at\` DATETIME NULL DEFAULT NULL COMMENT '最后登录时间',
   \`last_login_ip\` VARCHAR(45) NULL DEFAULT NULL COMMENT '最后登录IP',
@@ -64,7 +63,6 @@ CREATE TABLE IF NOT EXISTS \`${prefix}auth\` (
   \`password_changed_at\` DATETIME NULL DEFAULT NULL COMMENT '密码最后修改时间',
   \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间',
   \`updated_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '更新时间',
-  \`deleted_at\` DATETIME(6) NULL DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (\`id\`),
   UNIQUE KEY \`uk_auth_username\` (\`username\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='认证信息表';
@@ -85,10 +83,9 @@ CREATE TABLE IF NOT EXISTS \`${prefix}users\` (
   \`auth_id\` VARCHAR(36) NULL DEFAULT NULL COMMENT '关联认证ID',
   \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间',
   \`updated_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '更新时间',
-  \`deleted_at\` DATETIME(6) NULL DEFAULT NULL COMMENT '软删除时间',
   PRIMARY KEY (\`id\`),
   UNIQUE KEY \`uk_users_auth_id\` (\`auth_id\`),
-  CONSTRAINT \`fk_users_auth_id\` FOREIGN KEY (\`auth_id\`) REFERENCES \`${prefix}auth\` (\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION
+  CONSTRAINT \`fk_users_auth_id\` FOREIGN KEY (\`auth_id\`) REFERENCES \`${prefix}auth\` (\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户信息表';
 `;
 
@@ -122,12 +119,11 @@ async function main() {
     // 3. 创建管理员（admin / admin123，bcrypt 10 轮）
     await connection.query(
       `INSERT INTO \`${prefix}auth\` (
-        \`id\`, \`username\`, \`password\`, \`salt\`, \`status\`,
+        \`id\`, \`username\`, \`password\`, \`status\`,
         \`login_attempts\`, \`password_changed_at\`, \`created_at\`, \`updated_at\`
       )
       SELECT UUID(), 'admin',
         '$2b$10$5jPsludKmPaISSFhWUOvhuZ5aR2XgJWE6FIq55ZUcgagChyTVYL8u',
-        '$2b$10$5jPsludKmPaISSFhWUOvhu',
         1, 0, NOW(6), NOW(6), NOW(6)
       WHERE NOT EXISTS (SELECT 1 FROM \`${prefix}auth\` WHERE \`username\` = 'admin');`,
     );

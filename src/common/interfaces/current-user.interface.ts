@@ -13,7 +13,4 @@ export interface CurrentUser {
 
   /** 用户名 */
   username: string;
-
-  /** 最后登录时间 */
-  lastLoginAt?: Date;
 }

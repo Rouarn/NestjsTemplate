@@ -4,49 +4,6 @@ import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString } from 'class-validator';
 
 /**
- * JWT载荷DTO
- *
- * JWT令牌中包含的用户信息载荷。
- *
- * 字段说明：
- * - authId: 认证ID
- * - username: 用户名
- * - iat: 签发时间（JWT标准字段）
- * - exp: 过期时间（JWT标准字段）
- */
-export class JwtPayloadDto {
-  @ApiProperty({
-    description: '认证ID',
-    example: 'auth-uuid-456',
-  })
-  authId!: string;
-
-  @ApiProperty({
-    description: '用户ID',
-    example: 'user-uuid-123',
-  })
-  userId!: string;
-
-  @ApiProperty({
-    description: '用户名',
-    example: 'admin',
-  })
-  username!: string;
-
-  @ApiProperty({
-    description: '签发时间（Unix时间戳）',
-    example: 1640995200,
-  })
-  iat!: number;
-
-  @ApiProperty({
-    description: '过期时间（Unix时间戳）',
-    example: 1640998800,
-  })
-  exp!: number;
-}
-
-/**
  * 刷新令牌DTO
  *
  * 用于刷新访问令牌的数据传输对象。

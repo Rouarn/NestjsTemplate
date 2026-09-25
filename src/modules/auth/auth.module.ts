@@ -9,12 +9,12 @@ import { Auth } from './entities/auth.entity.js';
 /**
  * 认证模块（AuthModule）
  *
- * 专注于用户认证相关功能，与用户管理模块完全分离
+ * 负责登录、注册、验证码、改密等认证能力；
+ * 复用 UsersModule 查询用户资料，不反向被用户模块依赖。
  */
 @Module({
   imports: [TypeOrmModule.forFeature([Auth]), DatabaseModule, UsersModule],
   controllers: [AuthController],
   providers: [AuthService],
-  exports: [AuthService, TypeOrmModule],
 })
 export class AuthModule {}

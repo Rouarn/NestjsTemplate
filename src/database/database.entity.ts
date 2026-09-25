@@ -47,19 +47,4 @@ export abstract class BaseEntity {
     onUpdate: 'CURRENT_TIMESTAMP(6)',
   })
   updatedAt!: Date;
-
-  /**
-   * 软删除标识
-   *
-   * @description
-   * 0-未删除, 1-已删除
-   */
-  @Column({
-    name: 'deleted_at',
-    comment: '软删除时间',
-    type: 'datetime',
-    precision: 6,
-    nullable: true,
-  })
-  deletedAt!: Date | null;
 }

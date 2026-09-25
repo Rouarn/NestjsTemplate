@@ -1,4 +1,4 @@
-import { JWT_CONSTANTS } from '#/common/constants/index.js';
+import { CAPTCHA_CONSTANTS, JWT_CONSTANTS } from '#/common/constants/index.js';
 import { isEnabled } from '#/common/enums/index.js';
 import { BusinessException } from '#/common/exceptions/index.js';
 import { CurrentUser } from '#/common/interfaces/index.js';
@@ -48,9 +48,11 @@ export class AuthService {
   /**
    * 生成验证码
    *
-   * 生成SVG格式的验证码图片和对应的令牌，支持多种验证码类型
+   * 生成SVG格式的验证码图片和对应的令牌。
+   * 令牌为服务端 HMAC 签名的无状态凭证：载荷包含答案哈希与过期时间，
+   * 客户端无法伪造或离线推算答案，无需依赖外部缓存存储。
    *
-   * @returns 包含验证码图片、令牌、过期时间等信息
+   * @returns 包含验证码图片和令牌的信息
    */
   async generateCaptcha(): Promise<CaptchaResponseDto> {
     // 创建验证码，设置选项使其更安全
@@ -65,7 +67,7 @@ export class AuthService {
       fontSize: 36,
     });
 
-    const captchaToken = `captcha_${crypto.createHash('md5').update(captcha.text.toLowerCase()).digest('hex')}_${crypto.randomBytes(16).toString('hex')}`;
+    const captchaToken = this.createCaptchaToken(captcha.text);
 
     // 将SVG验证码转换为base64格式的图片
     const captchaImage = `data:image/svg+xml;base64,${Buffer.from(captcha.data).toString('base64')}`;
@@ -79,28 +81,99 @@ export class AuthService {
   /**
    * 验证验证码
    *
-   * 校验用户输入的验证码是否正确
+   * 校验用户输入的验证码是否正确（签名、有效期、答案三项）
    *
    * @param captchaVerifyDto 验证码验证数据
    * @returns 验证结果
    */
   async verifyCaptcha(captchaVerifyDto: CaptchaVerifyDto): Promise<CaptchaVerifyResponseDto> {
-    // 验证验证码逻辑
     const { token, code } = captchaVerifyDto;
+    this.assertCaptchaValid(token, code);
+    return { message: '验证成功' };
+  }
 
+  /**
+   * 生成验证码令牌
+   *
+   * 结构：base64url(答案哈希.过期时间戳).签名
+   * 签名为服务端密钥对载荷的 HMAC-SHA256，客户端无法篡改或伪造。
+   *
+   * @param code 验证码答案
+   * @returns 签名后的验证码令牌
+   */
+  private createCaptchaToken(code: string): string {
+    const answerHash = crypto.createHash('md5').update(code.toLowerCase()).digest('hex');
+    const expiresAt = Date.now() + CAPTCHA_CONSTANTS.TTL_SECONDS * 1000;
+    const payload = `${answerHash}.${expiresAt}`;
+    const encodedPayload = Buffer.from(payload, 'utf8').toString('base64url');
+    const signature = this.signCaptchaPayload(encodedPayload);
+
+    return `${encodedPayload}.${signature}`;
+  }
+
+  /**
+   * 校验验证码令牌，不合法时直接抛出业务异常
+   *
+   * @param token 验证码令牌
+   * @param code 用户输入的验证码
+   */
+  private assertCaptchaValid(token: string, code: string): void {
     if (!token || !code) {
-      throw BusinessException.badRequest('验证码token和code不能为空');
+      throw BusinessException.badRequest('验证码令牌和验证码不能为空');
     }
 
-    // 从token中提取验证码文本
-    const storedToken = token.split('_')[1];
+    const separatorIndex = token.lastIndexOf('.');
+    if (separatorIndex <= 0) {
+      throw BusinessException.badRequest('验证码令牌无效');
+    }
 
-    // 比较验证码文本是否匹配
-    if (storedToken !== crypto.createHash('md5').update(code.toLowerCase()).digest('hex')) {
+    const encodedPayload = token.slice(0, separatorIndex);
+    const signature = token.slice(separatorIndex + 1);
+
+    // 恒定时间比较签名，防止时序攻击
+    const expectedSignature = this.signCaptchaPayload(encodedPayload);
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    if (
+      actualBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(actualBuffer, expectedBuffer)
+    ) {
+      throw BusinessException.badRequest('验证码令牌无效');
+    }
+
+    const payload = Buffer.from(encodedPayload, 'base64url').toString('utf8');
+    const separatorInPayload = payload.lastIndexOf('.');
+    const answerHash = payload.slice(0, separatorInPayload);
+    const expiresAt = Number(payload.slice(separatorInPayload + 1));
+
+    if (!answerHash || !Number.isFinite(expiresAt)) {
+      throw BusinessException.badRequest('验证码令牌无效');
+    }
+
+    if (Date.now() > expiresAt) {
+      throw BusinessException.badRequest('验证码已过期，请重新获取');
+    }
+
+    const inputHash = crypto.createHash('md5').update(code.toLowerCase()).digest('hex');
+    if (
+      inputHash.length !== answerHash.length ||
+      !crypto.timingSafeEqual(Buffer.from(inputHash), Buffer.from(answerHash))
+    ) {
       throw BusinessException.badRequest('验证码错误');
     }
+  }
 
-    return { message: '验证成功' };
+  /**
+   * 对验证码令牌载荷进行 HMAC 签名
+   *
+   * @param encodedPayload base64url 编码的载荷
+   * @returns base64url 编码的签名
+   */
+  private signCaptchaPayload(encodedPayload: string): string {
+    return crypto
+      .createHmac('sha256', this.appConfig.jwtOptions.secret)
+      .update(encodedPayload)
+      .digest('base64url');
   }
 
   /**
@@ -114,6 +187,9 @@ export class AuthService {
    * @throws BadRequestException 注册数据验证失败
    */
   async register(registerDto: RegisterDto): Promise<AuthCreateUserResponse> {
+    // 先校验验证码，通过后再操作数据库
+    this.assertCaptchaValid(registerDto.captchaToken, registerDto.captchaCode);
+
     return await this.databaseService.getDataSource().transaction(async (manager) => {
       // 检查用户名是否已存在
       const existingAuth = await manager.findOne(Auth, {
@@ -125,11 +201,9 @@ export class AuthService {
       }
 
       // 创建认证记录
-      const { salt, hashedPassword } = this.encryptPassword(registerDto.password);
       const auth = manager.create(Auth, {
         username: registerDto.username,
-        password: hashedPassword,
-        salt,
+        password: this.hashPassword(registerDto.password),
         passwordChangedAt: new Date(),
         loginAttempts: 0,
       });
@@ -174,11 +248,14 @@ export class AuthService {
    * @throws BadRequestException 账号被锁定或其他业务错误
    */
   async login(loginDto: LoginDto, clientIp?: string): Promise<TokenResponseDto> {
-    // 查找认证记录，包含关联的用户信息，并显式选择密码和盐值
+    // 先校验验证码，通过后再查询账号，避免未授权请求打到数据库
+    this.assertCaptchaValid(loginDto.captchaToken, loginDto.captchaCode);
+
+    // 查找认证记录，包含关联的用户信息，并显式选择密码（默认 select:false）
     const auth = await this.authRepository
       .createQueryBuilder('auth')
       .leftJoinAndSelect('auth.user', 'user')
-      .addSelect(['auth.password', 'auth.salt'])
+      .addSelect('auth.password')
       .where('auth.username = :username', { username: loginDto.username })
       .getOne();
 
@@ -222,11 +299,7 @@ export class AuthService {
     // 更新最后登录时间
     await this.updateLastLogin(auth.id, clientIp);
 
-    // 生成JWT令牌
-    if (!auth.user) {
-      throw BusinessException.notFound('用户数据异常：缺少关联的用户信息');
-    }
-
+    // 生成JWT令牌（issueTokenResponse 内部会校验关联用户是否存在）
     return this.issueTokenResponse(auth);
   }
 
@@ -298,11 +371,14 @@ export class AuthService {
    * @returns 令牌响应
    */
   private async issueTokenResponse(auth: Auth): Promise<TokenResponseDto> {
+    if (!auth.user) {
+      throw BusinessException.notFound('用户数据异常：缺少关联的用户信息');
+    }
+
     const payload = {
       authId: auth.id,
-      userId: auth.user?.id || auth.id,
+      userId: auth.user.id,
       username: auth.username,
-      jti: crypto.randomUUID(),
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -326,11 +402,11 @@ export class AuthService {
    * @returns 包含用户ID、用户名、昵称、头像、邮箱、性别、手机号等信息
    */
   async getAuthInfo(auth: CurrentUser): Promise<User> {
-    if (auth.userId) {
-      return await this.usersService.findById(auth.userId);
+    if (!auth.userId) {
+      throw BusinessException.unauthorized('登录状态异常，请重新登录');
     }
 
-    return {} as User;
+    return await this.usersService.findById(auth.userId);
   }
 
   /**
@@ -346,10 +422,10 @@ export class AuthService {
     changePasswordDto: ChangePasswordDto,
     authId: string,
   ): Promise<{ message: string }> {
-    // 显式选择密码和盐值用于验证
+    // 显式选择密码用于验证
     const auth = await this.authRepository
       .createQueryBuilder('auth')
-      .addSelect(['auth.password', 'auth.salt'])
+      .addSelect('auth.password')
       .where('auth.id = :id', { id: authId })
       .getOne();
 
@@ -367,13 +443,19 @@ export class AuthService {
       throw BusinessException.badRequest('旧密码错误');
     }
 
-    // 生成新的盐值和密码哈希
-    const { salt, hashedPassword } = this.encryptPassword(changePasswordDto.newPassword);
+    // 校验两次输入的新密码一致
+    if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+      throw BusinessException.badRequest('两次输入的新密码不一致');
+    }
 
-    // 更新密码
+    // 新密码不能与旧密码相同
+    if (changePasswordDto.newPassword === changePasswordDto.oldPassword) {
+      throw BusinessException.badRequest('新密码不能与旧密码相同');
+    }
+
+    // 更新密码（bcrypt 哈希自带盐值）
     await this.authRepository.update(authId, {
-      password: hashedPassword,
-      salt,
+      password: this.hashPassword(changePasswordDto.newPassword),
       passwordChangedAt: new Date(),
     });
 
@@ -383,12 +465,12 @@ export class AuthService {
   /**
    * 用户登出
    *
-   * 精简版：服务端不再维护 Token 黑名单，登出由前端丢弃令牌完成。
-   * 此接口保留用于业务侧记录登出事件或后续扩展。
+   * 无状态 JWT 不维护 Token 黑名单，登出由前端丢弃令牌完成；
+   * 保留该端点仅为前端提供统一的登出语义。
    *
    * @returns 登出结果
    */
-  async logout(_token: string): Promise<{ message: string }> {
+  async logout(): Promise<{ message: string }> {
     return { message: '退出登录成功' };
   }
 
@@ -408,13 +490,13 @@ export class AuthService {
   /**
    * 加密密码
    *
+   * bcrypt 会在哈希内部自动生成并嵌入盐值，无需单独存储盐。
+   *
    * @param password 原始密码
-   * @returns 包含盐值和哈希密码的对象
+   * @returns bcrypt 哈希密码
    */
-  private encryptPassword(password: string): { salt: string; hashedPassword: string } {
-    const salt = bcrypt.genSaltSync(this.appConfig.bcryptSaltRounds);
-    const hashedPassword = bcrypt.hashSync(password, salt);
-    return { salt, hashedPassword };
+  private hashPassword(password: string): string {
+    return bcrypt.hashSync(password, this.appConfig.bcryptSaltRounds);
   }
 
   /**
@@ -446,7 +528,7 @@ export class AuthService {
    * @param auth 认证实体
    * @returns 是否被锁定
    */
-  public isAccountLocked(auth: Auth): boolean {
+  private isAccountLocked(auth: Auth): boolean {
     if (!auth.lockedAt) return false;
 
     // 动态计算锁定时间
@@ -522,9 +604,10 @@ export class AuthService {
    * @param authId 认证ID
    */
   private async unlockAccount(authId: string): Promise<void> {
+    // 传 undefined 会被 TypeORM 忽略导致 lockedAt 残留，这里用原始片段写入 NULL
     await this.authRepository.update(authId, {
       loginAttempts: 0,
-      lockedAt: undefined,
+      lockedAt: () => 'NULL',
     });
   }
 

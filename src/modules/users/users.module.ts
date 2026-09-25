@@ -28,10 +28,8 @@ import { UsersService } from './users.service.js';
     UsersService,
   ],
   exports: [
-    // 导出用户服务，供其他模块使用
+    // Auth 模块通过它查询用户资料
     UsersService,
-    // 导出TypeORM仓库，供其他模块直接使用（如果需要）
-    TypeOrmModule,
   ],
 })
 export class UsersModule {}

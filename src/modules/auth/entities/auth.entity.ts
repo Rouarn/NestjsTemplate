@@ -18,13 +18,10 @@ export class Auth extends BaseEntity {
   @Column({ name: 'username', length: 100, unique: true, comment: '用户名' })
   username!: string;
 
+  // bcrypt 哈希已内嵌盐值，无需单独存盐
   @Exclude()
   @Column({ name: 'password', comment: '密码', select: false })
   password!: string;
-
-  @Exclude()
-  @Column({ name: 'salt', length: 100, nullable: true, comment: '盐', select: false })
-  salt!: string;
 
   @Column({
     name: 'status',
@@ -60,7 +57,7 @@ export class Auth extends BaseEntity {
   })
   passwordChangedAt?: Date;
 
-  // 一对一关联用户信息
-  @OneToOne(() => User, (user) => user.auth, { cascade: true, onDelete: 'CASCADE' })
+  // 一对一关联用户信息（反向侧，不持有外键；级联规则由 User 侧持有外键处声明）
+  @OneToOne(() => User, (user) => user.auth)
   user!: User;
 }

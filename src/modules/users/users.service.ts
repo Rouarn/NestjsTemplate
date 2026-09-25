@@ -85,9 +85,9 @@ export class UsersService {
    * 更新用户信息
    * @param id 用户ID
    * @param updateUserDto 更新用户DTO
-   * @returns 更新后的用户信息
+   * @returns 更新后的用户信息（含关联认证信息）
    */
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<void> {
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
 
     // 检查邮箱唯一性
@@ -100,16 +100,20 @@ export class UsersService {
       }
     }
 
-    Object.assign(user, updateUserDto);
+    // birthday 在 DTO 中为日期字符串，入库前显式转换；空串已由 DTO 转为 null
+    const { birthday, ...profileFields } = updateUserDto;
+    Object.assign(user, profileFields);
+    if (birthday !== undefined) {
+      user.birthday = birthday === null ? null : new Date(birthday);
+    }
 
     await this.userRepository.save(user);
 
-    return;
+    return await this.findById(id);
   }
 
   /**
-   * 切换用户状态（通过关联的认证实体）
-   * 注意：这个方法需要与认证服务协作
+   * 切换用户状态（账号启用/禁用状态存放在关联的认证实体上）
    * @param id 用户ID
    * @param status 目标状态
    * @returns 更新后的用户信息

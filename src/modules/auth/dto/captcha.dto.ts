@@ -6,23 +6,17 @@ import { IsNotEmpty, IsString, Length } from 'class-validator';
  * 验证码验证DTO
  *
  * 用于验证用户输入的验证码是否正确。
- * 支持多种验证码类型和场景。
  *
  * 字段说明：
- * - token: 验证码令牌（必填）
+ * - token: 获取验证码时返回的签名令牌（必填）
  * - code: 用户输入的验证码（必填）
- * - type: 验证码类型（可选）
  *
  * 验证规则：
  * - token: 必填字符串
  * - code: 4-6个字符
- * - type: 可选的验证码类型标识
  *
  * 使用场景：
- * - 用户登录验证
- * - 用户注册验证
- * - 密码重置验证
- * - 敏感操作验证
+ * - 独立的验证码预校验接口（登录/注册在服务端内部也会强制校验）
  */
 export class CaptchaVerifyDto {
   @ApiProperty({
@@ -53,9 +47,8 @@ export class CaptchaVerifyDto {
  * 生成验证码后返回的数据结构。
  *
  * 字段说明：
- * - token: 验证码令牌
- * - image: 验证码图片（Base64编码）
- * - accessTokenTtl: 过期时间（秒）
+ * - token: 服务端签名的验证码令牌（含 5 分钟有效期）
+ * - image: 验证码图片（SVG 的 Base64 编码）
  */
 export class CaptchaResponseDto {
   @ApiProperty({

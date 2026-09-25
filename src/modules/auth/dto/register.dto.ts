@@ -144,70 +144,9 @@ export class RegisterDto {
 /**
  * 注册响应DTO
  *
- * 注册成功后返回的数据结构。
- *
- * 字段说明：
- * - message: 成功消息
- * - userId: 新创建的用户ID
- * - username: 用户名
- * - nickname: 昵称
- * - avatar: 头像
- * - email: 邮箱
- * - gender: 性别
- * - mobile: 手机号
- */
-export class RegisterResponseDto {
-  @ApiProperty({
-    description: '新创建的用户ID',
-    example: 'user-uuid-123',
-  })
-  userId!: string;
-
-  @ApiProperty({
-    description: '用户名',
-    example: 'newuser',
-  })
-  username!: string;
-
-  @ApiProperty({
-    description: '昵称',
-    example: 'New User',
-  })
-  nickname!: string;
-
-  @ApiPropertyOptional({
-    description: '头像',
-    example: 'https://example.com/avatar.jpg',
-  })
-  avatar?: string;
-
-  @ApiPropertyOptional({
-    description: '邮箱',
-    example: 'user@example.com',
-  })
-  email?: string;
-
-  @ApiPropertyOptional({
-    description: '性别',
-    example: 'MALE',
-    enum: ['MALE', 'FEMALE', 'OTHER'],
-  })
-  gender?: string;
-
-  @ApiPropertyOptional({
-    description: '手机号',
-    example: '13800138000',
-  })
-  mobile?: string;
-}
-
-/**
- * 创建用户响应DTO
+ * 注册成功后仅返回结果消息，账号详情由前端凭令牌通过 getUserInfo 获取。
  */
 export class AuthCreateUserResponse {
-  @ApiProperty({ description: '结果消息', example: '用户创建成功' })
+  @ApiProperty({ description: '结果消息', example: '注册成功' })
   message!: string;
-
-  @ApiPropertyOptional({ description: '用户记录', type: RegisterResponseDto })
-  data?: RegisterResponseDto;
 }

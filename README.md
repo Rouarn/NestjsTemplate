@@ -1,21 +1,21 @@
 # NestJS Template
 
-基于 NestJS 11 构建的精简后端 API 模板，聚焦「统一接口规范 + 日志记录 + 基础认证」，提供开箱即用、二次开发友好的开发基础。
+基于 NestJS 12 构建的精简后端 API 模板，聚焦「统一接口规范 + 日志记录 + 基础认证」，提供开箱即用、二次开发友好的开发基础。
 
 ## 🚀 核心特性
 
 - **模块化架构**: 清晰的领域分层，核心模块 (Auth, Users, Files) 职责分离。
 - **基础认证系统 (Auth)**:
   - **JWT 双令牌**: Access Token (短效) + Refresh Token (长效，自校验 JWT，无需服务端存储)。
-  - **安全防护**: 集成 SVG 验证码 (Captcha)，bcrypt 密码加密，登录失败锁定策略（指数退避）。
-  - **核心流程**: 登录、注册、注销、修改密码、刷新令牌。
+  - **安全防护**: SVG 验证码（服务端 HMAC 签名、5 分钟有效，登录/注册强制校验），bcrypt 密码加密（哈希内嵌盐值），登录失败锁定策略（指数退避）。
+  - **核心流程**: 登录、注册、注销、修改密码、刷新令牌、获取当前用户信息。
 - **文件服务 (Files)**:
   - **本地存储适配**: 封装统一的存储接口，支持文件上传、下载与流式传输。
   - **严格校验**: 可配置的文件类型 (MIME) 与大小限制。
   - **元数据管理**: 完整记录文件信息（原名、大小、MIME、存储路径）至数据库。
 - **健壮的基础设施**:
   - **统一配置**: 基于 `AppConfigService` 的强类型配置管理。
-  - **数据库**: TypeORM + MySQL 8，支持自动迁移与实体同步。
+  - **数据库**: TypeORM + MySQL 8；开发环境支持实体自动同步（`synchronize`，生产环境强制关闭），另提供 `db:init` 脚本一键建库建表并初始化管理员。
   - **标准化响应**: 统一的 API 响应格式 (Interceptors) 与全局异常处理 (Filters)。
   - **请求追踪**: 全局 `requestId` 链路，请求入口/出口结构化日志。
   - **API 文档**: 集成 Swagger (OpenAPI 3)，自动生成接口文档。
@@ -26,8 +26,8 @@
 
 | 类别       | 技术选型         | 说明                        |
 | ---------- | ---------------- | --------------------------- |
-| **框架**   | NestJS 11        | 核心服务端框架 (TypeScript) |
-| **语言**   | TypeScript 5     | 强类型开发体验              |
+| **框架**   | NestJS 12        | 核心服务端框架 (TypeScript) |
+| **语言**   | TypeScript 6     | 强类型开发体验              |
 | **数据库** | MySQL 8          | 关系型数据库                |
 | **ORM**    | TypeORM          | 数据库对象映射              |
 | **文档**   | Swagger          | API 接口文档生成            |
@@ -52,7 +52,7 @@ pnpm install
 
 ### 3. 配置环境变量
 
-复制项目根目录下的 `.env.example` (如果不存在请新建) 为 `.env` 或 `.env.development`，并根据实际环境修改：
+参考项目根目录下的 `.env.development`，按需创建或修改 `.env.development`（也可使用 `.env` 兜底），并根据实际环境调整：
 
 ```env
 # --- 应用基础 ---
@@ -60,6 +60,11 @@ NODE_ENV=development
 NEST_PORT=3000
 NEST_APP_TITLE=NestJS Template
 NEST_BASE_URL=http://localhost:3000
+
+# --- API 版本控制（默认 header：请求头 X-Api-Version，缺省版本 1；改为 uri 则路径形如 /api/v1） ---
+NEST_API_PREFIX=api
+NEST_API_VERSIONING_TYPE=header
+NEST_API_DEFAULT_VERSION=1
 
 # --- 数据库 (MySQL) ---
 NEST_DATABASE_HOST=localhost
@@ -70,7 +75,7 @@ NEST_DATABASE_NAME=nestjs_app
 NEST_DATABASE_SYNCHRONIZE=true
 NEST_DATABASE_LOGGING=false
 
-# --- JWT 认证 ---
+# --- JWT 认证（secret 同时用作验证码令牌的 HMAC 密钥，生产环境务必更换） ---
 NEST_JWT_SECRET=replace_with_your_secure_secret_key
 NEST_JWT_ACCESS_TOKEN_TTL=3600      # 1小时
 NEST_JWT_REFRESH_TOKEN_TTL=604800   # 7天
@@ -79,20 +84,31 @@ NEST_JWT_REFRESH_TOKEN_TTL=604800   # 7天
 NEST_STATIC_ASSETS_DIR=./static
 ```
 
-### 4. 启动项目
+### 4. 初始化数据库
+
+全新数据库可执行初始化脚本（自动建库、建表并创建管理员 `admin / admin123`）：
+
+```bash
+pnpm run db:init
+# 也可指定环境：node scripts/init-db.js --env=production
+```
+
+开发环境开启 `NEST_DATABASE_SYNCHRONIZE=true` 后，实体结构变更会自动同步到表结构；生产环境该配置强制关闭。
+
+### 5. 启动项目
 
 ```bash
 # 开发模式 (热更新)
 pnpm run start:dev
 
-# 生产模式
+# 生产模式（需先执行 pnpm run build:prod 构建产物）
 pnpm run start:prod
 ```
 
 启动成功后：
 
-- **API 服务**: `http://localhost:3000/api/v1`
-- **Swagger 文档**: `http://localhost:3000/api-docs`
+- **API 服务**: `http://localhost:3000/api`（默认通过请求头 `X-Api-Version: 1` 指定版本）
+- **Swagger 文档**: `http://localhost:3000/api-docs`（仅非生产环境开放）
 
 ## 🧩 核心模块说明
 
@@ -100,28 +116,32 @@ pnpm run start:prod
 
 位于 `src/modules/auth`。
 
-- **Login**: `POST /auth/login` (返回 Access + Refresh Token)
-- **Register**: `POST /auth/register`
-- **Captcha**: `GET /auth/captcha` (SVG 格式)
-- **Refresh**: `POST /auth/refresh` (换取新 Token)
-- **Logout**: `POST /auth/logout`
+- **Captcha**: `GET /auth/captcha`（返回 Base64 编码的 SVG 图片与签名令牌，有效期 5 分钟）
+- **Captcha Verify**: `POST /auth/captcha/verify`（独立预校验，可选使用）
+- **Login**: `POST /auth/login`（需携带 `captchaToken` + `captchaCode`，返回 Access + Refresh Token）
+- **Register**: `POST /auth/register`（需携带 `captchaToken` + `captchaCode`）
+- **Refresh**: `POST /auth/refresh`（换取新 Token）
+- **Get User Info**: `GET /auth/getUserInfo`（获取当前登录用户信息）
 - **Change Password**: `PUT /auth/change-password`
+- **Logout**: `POST /auth/logout`
 
 > 接口受全局 `JwtAuthGuard` 保护，公开接口使用 `@Public()` 装饰器标记。
+> 无状态验证码无法防止同一令牌在有效期内重复使用；如需「一次性消费」需自行引入缓存（如 Redis）。
 
 ### 用户模块 (Users)
 
 位于 `src/modules/users`。
 
-- 提供标准的用户 CRUD 操作。
-- 与 Auth 模块解耦，通过 `auth` 一对一关联。
-- 支持批量删除、状态切换等管理功能。
+- 提供标准的用户资料 CRUD 操作。
+- 与 Auth 单向依赖（Auth → Users），通过 `auth` 一对一关联；账号的启用/禁用状态存放在认证记录上。
+- 支持分页查询、批量删除、状态切换等管理功能；删除用户时在事务内联动删除认证记录。
 
 ## 📜 常用命令
 
 | 命令                  | 说明                                     |
 | --------------------- | ---------------------------------------- |
 | `pnpm run start:dev`  | 启动开发服务器 (Watch Mode)              |
+| `pnpm run db:init`    | 初始化数据库（建库建表 + 管理员账号）    |
 | `pnpm run build:prod` | 构建生产环境代码                         |
 | `pnpm run code:check` | 运行代码检查 (Format + Lint + TypeCheck) |
 | `pnpm run code:fix`   | 自动修复代码格式与 Lint 问题             |

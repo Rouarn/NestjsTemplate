@@ -46,7 +46,7 @@ export class JwtAuthGuard implements CanActivate {
     try {
       // 3. 验证 Token (包括签名和过期时间)
       // verifyAsync 会自动检查 exp，如果过期会抛出 TokenExpiredError
-      const payload = await this.jwtService.verifyAsync<CurrentUser & { jti?: string }>(token, {
+      const payload = await this.jwtService.verifyAsync<CurrentUser>(token, {
         secret: this.appConfig.jwtOptions.secret,
         algorithms: ['HS256'],
         clockTolerance: 5, // 允许5秒时间差，解决时钟不同步问题
@@ -59,7 +59,6 @@ export class JwtAuthGuard implements CanActivate {
         authId: payload.authId,
         userId: payload.userId,
         username: payload.username,
-        lastLoginAt: payload.lastLoginAt,
       };
 
       // 认证成功不再逐条打印用户信息：成功请求由 LoggingInterceptor 的响应出口

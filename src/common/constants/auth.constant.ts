@@ -21,3 +21,11 @@ export const AUTH_METADATA_KEYS = {
   /** 公共路由标识键 */
   IS_PUBLIC: 'isPublic',
 } as const;
+
+/**
+ * 验证码相关常量
+ */
+export const CAPTCHA_CONSTANTS = {
+  /** 验证码令牌有效期（秒） */
+  TTL_SECONDS: 5 * 60,
+} as const;

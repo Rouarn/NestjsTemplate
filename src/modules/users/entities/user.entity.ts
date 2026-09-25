@@ -39,7 +39,7 @@ export class User extends BaseEntity {
   email!: string;
 
   @Column({ name: 'birthday', type: 'date', nullable: true, comment: '生日' })
-  birthday!: Date;
+  birthday!: Date | null;
 
   @Column({ name: 'city', length: 100, nullable: true, comment: '所在城市' })
   city!: string;
@@ -49,8 +49,10 @@ export class User extends BaseEntity {
 
   // 一对一关联认证信息
   // 与 Auth 实体存在双向循环引用：此处使用字符串目标，
-  // 避免 ESM 实时绑定在装饰器元数据求值阶段触发 TDZ 错误
-  @OneToOne('Auth', 'user')
+  // 避免 ESM 实时绑定在装饰器元数据求值阶段触发 TDZ 错误。
+  // 外键 auth_id 由本表持有，ON DELETE CASCADE 必须声明在这一侧才会生效：
+  // 删除认证记录时由数据库自动删除对应用户记录。
+  @OneToOne('Auth', 'user', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'auth_id' })
   auth!: Auth;
 }
