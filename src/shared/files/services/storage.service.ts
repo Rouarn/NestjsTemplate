@@ -1,11 +1,11 @@
 import { AppConfigService } from '#/config/index.js';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { StorageAdapter } from '../interfaces/index.js';
 
 @Injectable()
-export class StorageService implements StorageAdapter {
+export class StorageService implements StorageAdapter, OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private readonly basePath: string;
 
@@ -15,7 +15,10 @@ export class StorageService implements StorageAdapter {
     this.basePath = path.isAbsolute(staticConfig.root)
       ? staticConfig.root
       : path.resolve(process.cwd(), staticConfig.root);
-    void this.ensureUploadDirectory();
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.ensureUploadDirectory();
   }
 
   private async ensureUploadDirectory(): Promise<void> {
@@ -23,6 +26,7 @@ export class StorageService implements StorageAdapter {
       await fs.mkdir(this.basePath, { recursive: true });
     } catch (error) {
       this.logger.error(`无法创建上传根目录: ${this.basePath}`, error);
+      throw error;
     }
   }
 

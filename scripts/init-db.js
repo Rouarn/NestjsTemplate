@@ -89,6 +89,21 @@ CREATE TABLE IF NOT EXISTS \`${prefix}users\` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户信息表';
 `;
 
+const createFilesTable = `
+CREATE TABLE IF NOT EXISTS \`${prefix}files\` (
+  \`id\` VARCHAR(36) NOT NULL COMMENT '文件ID',
+  \`original_name\` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  \`stored_path\` VARCHAR(512) NOT NULL COMMENT '存储相对路径',
+  \`mime_type\` VARCHAR(128) NOT NULL COMMENT '文件真实MIME类型',
+  \`size\` BIGINT UNSIGNED NOT NULL COMMENT '文件大小(字节)',
+  \`uploader_id\` VARCHAR(36) NULL DEFAULT NULL COMMENT '上传者用户ID',
+  \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间',
+  \`updated_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) COMMENT '更新时间',
+  PRIMARY KEY (\`id\`),
+  UNIQUE KEY \`uk_files_stored_path\` (\`stored_path\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件元数据表';
+`;
+
 async function main() {
   // 先连 MySQL 服务器（不指定库），库不存在也能创建
   const connection = await mysql.createConnection({
@@ -115,6 +130,9 @@ async function main() {
 
     await connection.query(createUsersTable);
     console.log(`✓ 表 ${prefix}users 已创建`);
+
+    await connection.query(createFilesTable);
+    console.log(`✓ 表 ${prefix}files 已创建`);
 
     // 3. 创建管理员（admin / admin123，bcrypt 10 轮）
     await connection.query(

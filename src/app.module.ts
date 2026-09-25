@@ -19,6 +19,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 // 应用核心组件
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -75,6 +76,13 @@ import { UsersModule } from './modules/users/users.module.js';
     DatabaseModule,
 
     // =============================================================================
+    // 限流模块 - 全局速率限制
+    // =============================================================================
+    ThrottlerModule.forRoot([
+      { ttl: 60_000, limit: 100 }, // 全局兜底：每 IP 每分钟 100 次
+    ]),
+
+    // =============================================================================
     // 业务模块 - 应用功能模块
     // =============================================================================
     // 业务模块注册
@@ -100,6 +108,10 @@ import { UsersModule } from './modules/users/users.module.js';
     // =============================================================================
     // 全局守卫配置 - 按优先级顺序执行
     // =============================================================================
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard, // 限流守卫 (优先于认证，最廉价地拦截洪水请求)
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard, // JWT 认证守卫 (验证访问令牌)

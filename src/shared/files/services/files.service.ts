@@ -1,21 +1,23 @@
 import { BusinessException } from '#/common/exceptions/index.js';
-import { AppConfigService } from '#/config/index.js';
 import { Inject, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { fileTypeFromFile } from 'file-type';
 import * as fs from 'fs/promises';
+import { extension as mimeExtension } from 'mime-types';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import * as path from 'path';
+import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { FileUploadResponseDto } from '../dto/index.js';
+import { File } from '../entities/file.entity.js';
 import type { StorageAdapter } from '../interfaces/index.js';
 import { STORAGE_ADAPTER } from '../interfaces/index.js';
 
 /**
- * file-type 实际返回类型的最小结构化描述，
- * 仅声明本服务使用到的字段。
+ * 解析后的文件类型（扩展名 + MIME）
  */
-interface DetectedFileType {
+interface ResolvedFileType {
   ext: string;
   mime: string;
 }
@@ -24,32 +26,44 @@ interface DetectedFileType {
 export class FilesService {
   constructor(
     @Inject(STORAGE_ADAPTER) private readonly storage: StorageAdapter,
-    private readonly appConfigService: AppConfigService,
+    @InjectRepository(File) private readonly fileRepository: Repository<File>,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
   /**
    * 上传单文件
    * @param file Multer 磁盘存储产生的文件对象（文件内容在临时目录中）
+   * @param uploaderId 上传者用户ID
+   * @param storedPaths 批量上传时传入，收集已落盘的存储路径用于失败回滚
    * @returns 包含访问URL的对象
    */
-  async uploadSingleFile(file: Express.Multer.File): Promise<FileUploadResponseDto> {
+  async uploadSingleFile(
+    file: Express.Multer.File,
+    uploaderId?: string,
+    storedPaths?: string[],
+  ): Promise<FileUploadResponseDto> {
     try {
-      // 1. 基于文件内容 (magic number) 检测真实类型
-      const detectedType = await this.detectFileType(file);
+      // 1. 解析真实类型：内容可检测时做防伪校验，不可检测时信任白名单放行的声明类型
+      const resolvedType = await this.resolveFileType(file);
 
-      // 2. 校验真实类型与声明类型一致、且在允许范围内
-      this.assertTypeAllowed(detectedType, file);
-
-      // 3. 生成目标文件名与日期子目录（扩展名取自内容检测结果，不信任原始文件名）
-      const filename = `${uuidv4()}.${detectedType.ext}`;
+      // 2. 生成目标文件名与日期子目录（扩展名由服务端派发，不信任原始文件名）
+      const filename = `${uuidv4()}.${resolvedType.ext}`;
       const relativePath = path.join(this.getDatePath(), filename);
 
-      // 4. 将临时文件移动到存储目录
+      // 3. 将临时文件移动到存储目录
       const storedPath = await this.storage.upload(file.path, relativePath);
+      storedPaths?.push(storedPath);
 
-      // 5. 获取访问 URL
+      // 4. 获取访问 URL 并落库文件元数据
       const [url, completeUrl] = this.storage.getUrl(storedPath);
+
+      await this.fileRepository.save({
+        originalName: this.decodeOriginalName(file.originalname),
+        storedPath,
+        mimeType: resolvedType.mime,
+        size: file.size,
+        uploaderId,
+      });
 
       this.logUploadSuccess(file, completeUrl);
 
@@ -107,50 +121,68 @@ export class FilesService {
   }
 
   /**
-   * 批量上传文件
+   * 批量上传文件（全部成功才算成功）
+   *
+   * 串行处理：任一文件失败时回滚已落盘的文件并删除其元数据记录，
+   * 避免并发下 Promise.all 提前 reject 导致的「孤儿文件」竞态。
    * @param files 文件对象数组
+   * @param uploaderId 上传者用户ID
    * @returns 包含访问URL的对象数组
    */
-  async uploadMultipleFiles(files: Express.Multer.File[]): Promise<FileUploadResponseDto[]> {
-    return Promise.all(files.map((file) => this.uploadSingleFile(file)));
+  async uploadMultipleFiles(
+    files: Express.Multer.File[],
+    uploaderId?: string,
+  ): Promise<FileUploadResponseDto[]> {
+    const storedPaths: string[] = [];
+    const results: FileUploadResponseDto[] = [];
+
+    try {
+      for (const file of files) {
+        results.push(await this.uploadSingleFile(file, uploaderId, storedPaths));
+      }
+      return results;
+    } catch (error) {
+      // 回滚：删除已落盘的文件与对应元数据记录
+      await Promise.allSettled(
+        storedPaths.map(async (storedPath) => {
+          await this.storage.delete(storedPath);
+          await this.fileRepository.delete({ storedPath });
+        }),
+      );
+      throw error;
+    }
   }
 
   /**
-   * 根据文件内容检测真实类型
+   * 解析文件的真实类型（扩展名 + MIME）
+   *
+   * 类型白名单的唯一事实源是环境变量 NEST_UPLOAD_ALLOWED_TYPES，
+   * 由 Multer fileFilter 在解析期把关，此处不再重复校验，只做两件事：
+   *
+   * 1. 防伪：内容可被 file-type 检测的二进制格式（图片/压缩包/exe 等），
+   *    检测结果必须与客户端声明的 mimetype 一致，防止 exe 伪装成 png。
+   * 2. 派发扩展名：优先取检测结果；文本类等无 magic number 的格式检测不到，
+   *    信任已被白名单放行的声明类型，用 mime-types 数据库查扩展名。
+   *
+   * 安全性说明：扩展名由服务端按上述规则派发（不取原始文件名），
+   * 静态服务又按扩展名决定响应 Content-Type，攻击者无法控制文件的最终服务身份。
    */
-  private async detectFileType(file: Express.Multer.File): Promise<DetectedFileType> {
+  private async resolveFileType(file: Express.Multer.File): Promise<ResolvedFileType> {
+    const declared = file.mimetype;
     const detected = await fileTypeFromFile(file.path);
 
-    if (!detected) {
-      throw BusinessException.badRequest('无法识别文件类型，文件内容可能已损坏或被篡改');
+    if (detected) {
+      if (detected.mime !== declared) {
+        throw BusinessException.badRequest(
+          `文件内容与声明类型不符: 声明 ${declared}, 实际 ${detected.mime}`,
+        );
+      }
+      return { ext: detected.ext, mime: detected.mime };
     }
 
-    return detected;
-  }
-
-  /**
-   * 校验检测出的真实类型：
-   * 1. 必须与客户端声明的 mimetype 一致（防止改后缀或伪造请求头）；
-   * 2. 必须在配置的允许类型白名单内（白名单为空表示不限制）。
-   */
-  private assertTypeAllowed(detectedType: DetectedFileType, file: Express.Multer.File): void {
-    if (detectedType.mime !== file.mimetype) {
-      throw BusinessException.badRequest(
-        `文件内容与声明类型不符: 声明 ${file.mimetype}, 实际 ${detectedType.mime}`,
-      );
-    }
-
-    const { uploadsAllowedTypes } = this.appConfigService.staticAssetsOptions;
-    const allowedTypes = uploadsAllowedTypes
-      .split(',')
-      .map((type) => type.trim())
-      .filter(Boolean);
-
-    if (allowedTypes.length > 0 && !allowedTypes.includes(detectedType.mime)) {
-      throw BusinessException.badRequest(
-        `不支持的文件类型: ${detectedType.mime}。 允许的类型: ${allowedTypes.join(', ')}`,
-      );
-    }
+    // mime-types 查不到对应扩展名时返回 false，兜底为通用二进制扩展名
+    const ext = mimeExtension(declared);
+    return { ext: typeof ext === 'string' ? ext : 'bin', mime: declared };
   }
 
   /**

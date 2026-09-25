@@ -7,7 +7,6 @@
  * @version 1.0.0
  */
 
-import 'reflect-metadata';
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -15,8 +14,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cors from 'cors';
 import * as fs from 'fs';
+import type { ServerResponse } from 'http';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as path from 'path';
+import 'reflect-metadata';
 import { AppModule } from './app.module.js';
 import { BootstrapLogHelper } from './common/helpers/index.js';
 import type { StaticConfig } from './config/index.js';
@@ -74,7 +75,13 @@ function configureStaticAssets(app: NestExpressApplication, appConfig: AppConfig
   const staticPath = resolveStaticPath(staticConfig);
 
   BootstrapLogHelper.logStaticResourceConfig(staticConfig, staticPath);
-  app.useStaticAssets(staticPath, staticConfig);
+  app.useStaticAssets(staticPath, {
+    ...staticConfig,
+    // 禁止浏览器 MIME 嗅探，确保文件严格按扩展名对应的 Content-Type 解析
+    setHeaders: (res: ServerResponse): void => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    },
+  });
 
   return staticPath;
 }

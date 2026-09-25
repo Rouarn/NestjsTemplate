@@ -1,83 +1,99 @@
-# 文件上传系统 (src/shared/files)
+# Files 模块
 
-该模块提供通用的文件上传能力，支持单文件和多文件上传，采用磁盘流式存储与多层校验，并通过存储适配器 + DI token 抽象存储后端，方便未来扩展到 OSS、S3 等。
+统一处理文件上传、静态存储、访问 URL 生成与文件元数据持久化。
 
 ## 核心特性
 
-- **单/多文件上传**：通过 `multipart/form-data` 上传，字段名分别为 `file` 与 `files`。
-- **磁盘流式存储**：Multer 使用 `diskStorage` 直接写入临时文件，上传期间文件不常驻 Node 内存。
-- **内容级类型校验**：基于文件内容（magic number）检测真实类型，不信任客户端声明的 mimetype 与原始文件名。
-- **自动文件名生成**：UUID + 内容检测出的真实扩展名；按日期（`YYYY/MM`）组织目录。
-- **临时目录隔离**：未通过校验的文件留在系统临时目录中，永远不会进入对外服务的静态资源目录。
-- **存储适配器模式**：通过 `StorageAdapter` 接口与 `STORAGE_ADAPTER` token 解耦，默认实现为本地磁盘。
-- **Swagger 集成**：接口均已集成 Swagger 文档，支持在线调试。
+- **配置驱动白名单**：允许的文件类型由环境变量 `NEST_UPLOAD_ALLOWED_TYPES` 单点控制，代码中无任何硬编码类型清单——白名单放行的类型即可上传。
+- **内容级防伪校验**：可检测的二进制格式（图片/压缩包/exe 等）要求声明类型与实际内容一致；文本类等无 magic number 的格式信任白名单，扩展名由 `mime-types` 数据库派发。
+- **通用预检**：路由级 `@UploadQuota` 装饰器声明文件数配额，Guard 据此做 Content-Length 早期拦截，无路径魔法字符串。
+- **接口限流**：上传接口 10 次/分钟/IP（`@nestjs/throttler`），全局兜底 100 次/分钟。
+- **元数据持久化**：上传成功写入 `ra_files` 表（原始文件名、存储路径、真实 MIME、大小、上传者）。
+- **失败自动回滚**：批量上传任一失败，已落盘文件与 DB 记录全部清理。
+- **临时目录隔离**：Multer 先写入 `os.tmpdir()`，校验通过后才迁入静态目录。
 
 ## 目录结构
 
 ```text
-src/shared/files/
-├── dto/                    # 数据传输对象 (FileUploadResponseDto)
-├── guards/                 # 预检守卫 (FileUploadGuard)
-├── interfaces/             # StorageAdapter 接口与 STORAGE_ADAPTER token
+files/
+├── decorators/
+│   ├── api-file.decorator.ts       # @ApiFile / @ApiFiles (Swagger 文档)
+│   └── upload-quota.decorator.ts   # @UploadQuota (路由级文件数配额)
+├── dto/                            # FileUploadResponseDto
+├── entities/                       # File 元数据实体
+├── guards/
+│   └── file-upload.guard.ts        # Content-Type 检查 + 配额驱动的 Content-Length 预检
+├── interfaces/                     # StorageAdapter 抽象 + STORAGE_ADAPTER 注入令牌
 ├── services/
-│   ├── files.service.ts    # 内容校验、重命名、路径生成
-│   └── storage.service.ts  # 本地磁盘存储实现
-├── files.controller.ts     # 上传接口定义
-└── files.module.ts         # 模块配置 (Multer 异步注册、适配器绑定)
+│   ├── files.service.ts            # 类型判定、命名、落库、回滚
+│   └── storage.service.ts          # 本地磁盘实现
+├── files.controller.ts             # POST /upload、POST /upload/multiple
+└── files.module.ts                 # Multer 配置（fileFilter/limits/diskStorage）
 ```
 
 ## 上传流程
 
-请求依次经过以下环节，非法请求会尽早被拒绝：
-
-1. **FileUploadGuard（Guard，接收请求体之前）**
-   - 校验 `Content-Type` 必须为 `multipart/form-data`。
-   - 按目标接口计算总量限额并校验 `Content-Length`：单文件接口按 1 个文件计，多文件接口按 `uploadsMaxFiles` 个文件的总量计，并为每文件预留 64KB 的 multipart 协议开销。
-   - 使用 chunked 编码、不带 `Content-Length` 的请求会跳过本层，最终限制仍由 Multer `limits` 强制执行。
-2. **Multer fileFilter（解析 multipart 期间）**
-   - 检查声明的 `mimetype` 是否在白名单内，不通过则立即中断传输。
-3. **Multer diskStorage（流式落盘）**
-   - 文件以 `uuid.tmp` 写入系统临时目录（`os.tmpdir()/nestjs-upload`）。
-4. **FilesService（Controller 调用）**
-   - 用 `file-type` 基于文件内容检测真实类型；检测失败、与声明类型不一致或不在白名单内均拒绝请求。
-   - 生成 `YYYY/MM/uuid.真实扩展名` 目标路径，调用适配器将临时文件移动到静态资源目录。
-   - 校验或存储失败时自动删除临时文件，避免残留。
-5. **静态资源访问**
-   - 文件通过配置的静态资源前缀（如 `/static`）对外提供访问。
-
-## 接口与响应
-
-| 接口               | 方法 | 字段名  | 说明                                        |
-| ------------------ | ---- | ------- | ------------------------------------------- |
-| `/upload`          | POST | `file`  | 单文件上传                                  |
-| `/upload/multiple` | POST | `files` | 多文件上传（数量受 `uploadsMaxFiles` 限制） |
-
-响应示例：
-
-```json
-{
-  "url": "/static/2024/03/550e8400-e29b-41d4-a716-446655440000.jpg",
-  "completeUrl": "http://localhost:3000/static/2024/03/550e8400-e29b-41d4-a716-446655440000.jpg"
-}
 ```
+1. ThrottlerGuard      → 限流（10 次/分钟/IP）
+2. JwtAuthGuard        → 需登录（@GetCurrentUser('userId') 记录上传者）
+3. FileUploadGuard     → Content-Type + Content-Length 预检（按 @UploadQuota 配额）
+4. Multer fileFilter   → 声明 mimetype 是否在白名单（解析期即中断，唯一白名单校验点）
+5. Multer limits       → 文件大小 / 数量的字节级限制
+6. Multer diskStorage  → 流式写入临时目录
+7. FilesService        → file-type 防伪校验 → 派发扩展名 → UUID 命名 → 落盘 → 写库
+```
+
+### 类型判定规则（`resolveFileType`）
+
+| file-type 检测结果     | 处理                                                                   |
+| ---------------------- | ---------------------------------------------------------------------- |
+| 检测成功且 = 声明 mime | 放行，用检测出的扩展名                                                 |
+| 检测成功但 ≠ 声明 mime | 400 拒绝（防伪：如 exe 改后缀冒充 png）                                |
+| 检测不到（文本类等）   | 信任白名单已放行的声明 mime，用 `mime-types` 查扩展名，查不到用 `.bin` |
+
+## 接口概览
+
+| 方法 | 路径                   | 说明       | 字段名  | 成功响应                      |
+| ---- | ---------------------- | ---------- | ------- | ----------------------------- |
+| POST | `/api/upload`          | 单文件上传 | `file`  | `{ url, completeUrl }`        |
+| POST | `/api/upload/multiple` | 批量上传   | `files` | `[{ url, completeUrl }, ...]` |
+
+两接口均需认证；`url` 为相对路径，`completeUrl` 为完整访问地址（`NEST_BASE_URL` 为空时与 `url` 相同）。
 
 ## 配置说明
 
-配置项位于环境变量（经 `AppConfigService.staticAssetsOptions` 读取）：
+```bash
+NEST_STATIC_ASSETS_DIR=./deploy/static       # 静态资源目录（含上传目录）
+NEST_STATIC_ASSETS_PREFIX=/static            # 访问前缀（/ 开头，结尾无 /）
+NEST_BASE_URL=http://localhost:8898          # 站点地址，留空则返回相对路径
+NEST_UPLOAD_ALLOWED_TYPES=image/jpeg,...     # 允许的文件类型白名单（唯一事实源）
+NEST_UPLOAD_MAX_SIZE=10485760                # 单文件大小上限（字节）
+NEST_UPLOAD_MAX_FILES=10                     # 批量上传最大文件数
+```
 
-- `NEST_UPLOAD_MAX_SIZE`：单个文件最大字节数（默认 10MB）。
-- `NEST_UPLOAD_MAX_FILES`：多文件上传的最大数量（默认 10）。
-- `NEST_UPLOAD_ALLOWED_TYPES`：允许的 mimetype 白名单，逗号分隔（如 `image/jpeg,image/png,application/pdf`）；**留空表示不限制类型**。
-- `NEST_STATIC_ASSETS_DIR`：本地存储根路径（相对路径基于 `process.cwd()` 解析）。
-- `NEST_STATIC_ASSETS_PREFIX`：静态资源访问前缀（如 `/static`）。
+## 安全说明
 
-## 存储扩展
+1. **扩展名由服务端派发**：存储文件名为 `uuid.{扩展名}`，扩展名来自内容检测或 `mime-types` 数据库，绝不使用原始文件名——攻击者无法控制文件的最终服务身份（Content-Type 由扩展名决定）。
+2. **nosniff**：静态服务统一返回 `X-Content-Type-Options: nosniff`，禁止浏览器嗅探绕过 Content-Type。
+3. **客户端必须声明准确的 Content-Type**：声明 `application/octet-stream` 但内容实为 PNG 会被防伪校验拒绝，这是刻意设计（防止通用类型绕过白名单）。
+4. **白名单即信任边界**：放行 `image/svg+xml`、`text/html` 等可执行格式等于允许存储型 XSS（文件内容真实可执行，防伪校验无法拦截）。如需放行，建议将静态资源部署到独立域名做 Cookie 隔离。
+5. **限流**：`@nestjs/throttler` 基于内存按 IP 计数；多实例部署需自行接入 Redis 存储（官方 `@nest-lab/throttler-storage-redis`）。
 
-更换存储引擎（例如阿里云 OSS）只需两步，业务代码无需改动：
+## 新增上传接口（开发者指引）
 
-1. 新建类实现 `StorageAdapter` 接口（`upload` / `download` / `delete` / `exists` / `getUrl`）。
-2. 在 `files.module.ts` 中把绑定改为新实现：
+```typescript
+@Post('avatar')
+@UploadQuota(2)            // 或 'max' 使用 NEST_UPLOAD_MAX_FILES 配置值
+@ApiFile('avatar')         // Swagger 文档，自定义字段名
+@UseInterceptors(FileInterceptor('avatar'))
+async uploadAvatar(@UploadedFile() file: Express.Multer.File) { ... }
+```
 
-   ```ts
-   { provide: STORAGE_ADAPTER, useClass: OssStorageService }
-   ```
+- 在 `NEST_UPLOAD_ALLOWED_TYPES` 中加入新类型即可放行，无需改任何代码。
+- 文件数配额用 `@UploadQuota(n)` 声明，未声明时 Guard 按单文件预检。
+
+## 注意事项
+
+- 更换存储介质：实现 `StorageAdapter` 接口并在 `FilesModule` 中绑定 `STORAGE_ADAPTER` 即可（如改为 OSS/S3，需改为流式上传以利用临时文件流）。
+- 生产环境 `synchronize: false`，`ra_files` 表由 `node scripts/init-db.js --env=production` 随初始化一并创建。
+- `ra_files` 表仅记录元数据，不提供删除/查询接口，按需扩展。
