@@ -53,6 +53,8 @@ export class JwtAuthGuard implements CanActivate {
       });
 
       // 4. 注入用户信息到请求对象
+      //    赋值后该请求满足 AuthenticatedRequest（user 必填），
+      //    后续控制器/参数装饰器阶段可按非空用户直接使用
       request.user = {
         authId: payload.authId,
         userId: payload.userId,
@@ -60,11 +62,8 @@ export class JwtAuthGuard implements CanActivate {
         lastLoginAt: payload.lastLoginAt,
       };
 
-      // 仅开发环境打印调试信息，避免生产环境日志刷屏
-      if (!this.appConfig.isProduction) {
-        this.logger.debug(`认证成功用户: ${payload.username}/${payload.authId}`);
-      }
-
+      // 认证成功不再逐条打印用户信息：成功请求由 LoggingInterceptor 的响应出口
+      // 统一记录用户信息，失败请求由 AllExceptionsFilter 在结构化日志中留痕，避免重复
       return true;
     } catch (e: unknown) {
       const error = e as Error;

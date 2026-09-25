@@ -90,6 +90,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (typeof request.startTime === 'number') {
       logData.responseTime = Date.now() - request.startTime;
     }
+    // 已通过认证的请求记录操作用户，便于失败请求的排查与审计
+    if (request.user) {
+      logData.user = {
+        userId: request.user.userId,
+        username: request.user.username,
+      };
+    }
     if (!isHttpException) {
       const err = exception as Error;
       logData.errorName = err?.name;

@@ -23,3 +23,19 @@ export interface AppRequest extends Request {
   /** 当前登录用户（JwtAuthGuard 校验通过后注入；公开路由或 Guard 之前可能不存在） */
   user?: CurrentUser;
 }
+
+/**
+ * 已认证请求类型
+ *
+ * 表示「已经过 JwtAuthGuard 校验通过」的请求阶段（如控制器处理期、
+ * 受保护路由的参数装饰器），此时 user 必然存在。
+ *
+ * 使用边界：
+ * - 仅限受保护路由的 Guard 之后阶段使用；
+ * - `@Public()` 路由、中间件阶段、Guard 校验之前仍应使用 AppRequest，
+ *   那些场景 user 可能不存在。
+ */
+export interface AuthenticatedRequest extends AppRequest {
+  /** 当前登录用户（JwtAuthGuard 校验通过，必然存在） */
+  user: CurrentUser;
+}
