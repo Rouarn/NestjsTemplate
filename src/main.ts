@@ -14,7 +14,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cors from 'cors';
 import * as fs from 'fs';
-import type { ServerResponse } from 'http';
+import helmet from 'helmet';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as path from 'path';
 import 'reflect-metadata';
@@ -38,6 +38,16 @@ function resolveStaticPath(staticConfig: StaticConfig): string {
  * 配置应用基础设置
  */
 function configureApp(app: NestExpressApplication, appConfig: AppConfigService): void {
+  // 安全响应头（nosniff、X-Frame-Options 等）
+  app.use(
+    helmet({
+      // JSON API 无需 CSP；默认策略会拦截 Swagger UI 的内联脚本导致文档页打不开
+      contentSecurityPolicy: false,
+      // 上传的静态资源需允许跨域加载（前后端分离时前端在不同源）
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
   // 启用 GZIP 压缩 Accept-Encoding: gzip
   app.use(compression());
 
@@ -75,13 +85,7 @@ function configureStaticAssets(app: NestExpressApplication, appConfig: AppConfig
   const staticPath = resolveStaticPath(staticConfig);
 
   BootstrapLogHelper.logStaticResourceConfig(staticConfig, staticPath);
-  app.useStaticAssets(staticPath, {
-    ...staticConfig,
-    // 禁止浏览器 MIME 嗅探，确保文件严格按扩展名对应的 Content-Type 解析
-    setHeaders: (res: ServerResponse): void => {
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-    },
-  });
+  app.useStaticAssets(staticPath, staticConfig);
 
   return staticPath;
 }

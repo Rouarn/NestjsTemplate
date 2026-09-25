@@ -43,6 +43,7 @@
     "compression": "^1.8.2",
     "cors": "^2.8.6",
     "file-type": "^22.1.1",
+    "helmet": "^8.3.0",
     "joi": "^18.2.9",
     "mime-types": "^3.0.2",
     "multer": "^2.4.0",

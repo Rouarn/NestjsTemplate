@@ -74,7 +74,7 @@ NEST_UPLOAD_MAX_FILES=10                     # 批量上传最大文件数
 ## 安全说明
 
 1. **扩展名由服务端派发**：存储文件名为 `uuid.{扩展名}`，扩展名来自内容检测或 `mime-types` 数据库，绝不使用原始文件名——攻击者无法控制文件的最终服务身份（Content-Type 由扩展名决定）。
-2. **nosniff**：静态服务统一返回 `X-Content-Type-Options: nosniff`，禁止浏览器嗅探绕过 Content-Type。
+2. **安全响应头**：由全局 `helmet` 统一设置（`X-Content-Type-Options: nosniff` 禁止浏览器嗅探绕过 Content-Type、`X-Frame-Options` 等）；静态资源放行 `Cross-Origin-Resource-Policy: cross-origin` 以支持前后端分离部署。
 3. **客户端必须声明准确的 Content-Type**：声明 `application/octet-stream` 但内容实为 PNG 会被防伪校验拒绝，这是刻意设计（防止通用类型绕过白名单）。
 4. **白名单即信任边界**：放行 `image/svg+xml`、`text/html` 等可执行格式等于允许存储型 XSS（文件内容真实可执行，防伪校验无法拦截）。如需放行，建议将静态资源部署到独立域名做 Cookie 隔离。
 5. **限流**：`@nestjs/throttler` 基于内存按 IP 计数；多实例部署需自行接入 Redis 存储（官方 `@nest-lab/throttler-storage-redis`）。
