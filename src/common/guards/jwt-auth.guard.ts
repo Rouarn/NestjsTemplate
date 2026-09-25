@@ -1,11 +1,10 @@
 import { JWT_CONSTANTS } from '#/common/constants/index.js';
 import { BusinessException } from '#/common/exceptions/index.js';
-import { CurrentUser } from '#/common/interfaces/index.js';
+import { AppRequest, CurrentUser } from '#/common/interfaces/index.js';
 import { AppConfigService } from '#/config/index.js';
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/index.js';
 
 /**
@@ -26,7 +25,7 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<AppRequest>();
 
     // 1. 检查是否是 @Public 路由 (允许不登录，但如果有 Token 会尝试解析)
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -54,7 +53,7 @@ export class JwtAuthGuard implements CanActivate {
       });
 
       // 4. 注入用户信息到请求对象
-      request['user'] = {
+      request.user = {
         authId: payload.authId,
         userId: payload.userId,
         username: payload.username,
@@ -87,7 +86,7 @@ export class JwtAuthGuard implements CanActivate {
     }
   }
 
-  private extractTokenFromHeader(request: Request): string | undefined {
+  private extractTokenFromHeader(request: AppRequest): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     return type === JWT_CONSTANTS.TOKEN_PREFIX ? token : undefined;
   }

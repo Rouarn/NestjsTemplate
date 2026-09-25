@@ -1,7 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { createParamDecorator } from '@nestjs/common';
-import type { Request } from 'express';
-import type { CurrentUser } from '../interfaces/index.js';
+import type { AppRequest, CurrentUser } from '../interfaces/index.js';
 
 /**
  * 获取当前用户装饰器（GetCurrentUser）
@@ -14,7 +13,7 @@ export const GetCurrentUser = createParamDecorator(
     field: keyof CurrentUser | undefined,
     ctx: ExecutionContext,
   ): CurrentUser | string | string[] | Date | undefined => {
-    const request = ctx.switchToHttp().getRequest<Request>();
+    const request = ctx.switchToHttp().getRequest<AppRequest>();
     const user: CurrentUser | undefined = request.user;
 
     return field ? user?.[field] : user;

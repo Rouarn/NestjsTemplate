@@ -5,3 +5,4 @@
  */
 export * from './response.interface.js';
 export * from './current-user.interface.js';
+export * from './app-request.interface.js';

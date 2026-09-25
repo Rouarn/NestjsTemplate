@@ -1,18 +1,11 @@
-import { CurrentUser } from '#/common/interfaces/current-user.interface.js';
+import type { AppRequest } from '#/common/interfaces/index.js';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { Logger } from 'winston';
-
-// 扩展 Express 的 Request 接口，以包含自定义属性
-interface AppRequest extends Request {
-  user?: CurrentUser;
-  requestId?: string;
-  startTime?: number;
-}
 
 /**
  * 响应日志拦截器（LoggingInterceptor）

@@ -9,7 +9,7 @@
  * （`APP_FILTER` + `useClass`）。不要使用 `new AllExceptionsFilter()` 手动实例化，
  * 否则依赖注入失效，记录日志时会抛出运行时错误。
  */
-import type { ErrorResponse } from '#/common/interfaces/index.js';
+import type { AppRequest, ErrorResponse } from '#/common/interfaces/index.js';
 import { formatISOString } from '#/utils/index.js';
 import {
   ArgumentsHost,
@@ -23,9 +23,6 @@ import {
 import type { Request, Response } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import type { Logger } from 'winston';
-
-/** 附带 `LoggerMiddleware` 注入的请求追踪信息的请求类型 */
-type RequestWithId = Request & { requestId?: string; startTime?: number };
 
 @Injectable()
 @Catch()
@@ -46,7 +43,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<RequestWithId>();
+    const request = ctx.getRequest<AppRequest>();
 
     const isHttpException = exception instanceof HttpException;
     const status = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;

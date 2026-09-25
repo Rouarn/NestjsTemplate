@@ -1,14 +1,9 @@
+import type { AppRequest } from '#/common/interfaces/index.js';
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import type { Logger } from 'winston';
-
-// 扩展 Express 的 Request 接口，以包含自定义属性
-interface AppRequest extends Request {
-  requestId?: string;
-  startTime?: number;
-}
 
 /** 上游透传请求 ID 的请求头 */
 const TRACE_ID_HEADER = 'x-request-id';
