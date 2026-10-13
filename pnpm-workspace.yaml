@@ -1,3 +1,5 @@
 allowBuilds:
   '@scarf/scarf': true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@vakao-ui/scripts-utils@0.0.2'
