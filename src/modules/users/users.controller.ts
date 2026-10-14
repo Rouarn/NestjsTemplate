@@ -59,7 +59,12 @@ export class UsersController {
     description: '获取用户列表成功',
     type: UserListResponseDto,
   })
-  async findAll(@Query() queryDto: QueryUserDto): Promise<UserListResponseDto> {
+  /**
+   * 返回类型为 service 中间形态 { list, total }，
+   * 全局 ResponseInterceptor 会将其转换为 UserListResponseDto（records/total/totalPages/current/size）后响应；
+   * swagger 文档以 @ApiResponse 的 type: UserListResponseDto 为准
+   */
+  async findAll(@Query() queryDto: QueryUserDto): Promise<{ list: User[]; total: number }> {
     return await this.usersService.findAll(queryDto);
   }
 
