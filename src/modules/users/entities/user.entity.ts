@@ -14,11 +14,18 @@ export class User extends BaseEntity {
   @PrimaryGeneratedColumn('uuid', { comment: '用户ID' })
   id!: string;
 
-  @Column({ name: 'nickname', length: 64, nullable: true, default: '用户', comment: '昵称' })
-  nickname!: string;
+  @Column({
+    name: 'nickname',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    default: '用户',
+    comment: '昵称',
+  })
+  nickname!: string | null;
 
-  @Column({ name: 'avatar', length: 255, nullable: true, comment: '头像URL' })
-  avatar!: string;
+  @Column({ name: 'avatar', type: 'varchar', length: 255, nullable: true, comment: '头像URL' })
+  avatar!: string | null;
 
   @Column({
     name: 'gender',
@@ -27,25 +34,25 @@ export class User extends BaseEntity {
     nullable: true,
     comment: '性别: 0-男, 1-女, 2-未知',
   })
-  gender!: Gender;
+  gender!: Gender | null;
 
   @Column({ name: 'mobile', type: 'char', length: 11, nullable: true, comment: '手机号' })
-  mobile!: string;
+  mobile!: string | null;
 
   @Column({ name: 'bio', type: 'text', nullable: true, comment: '个人简介' })
-  bio!: string;
+  bio!: string | null;
 
-  @Column({ name: 'email', length: 128, nullable: true, comment: '邮箱地址' })
-  email!: string;
+  @Column({ name: 'email', type: 'varchar', length: 128, nullable: true, comment: '邮箱地址' })
+  email!: string | null;
 
   @Column({ name: 'birthday', type: 'date', nullable: true, comment: '生日' })
   birthday!: Date | null;
 
-  @Column({ name: 'city', length: 100, nullable: true, comment: '所在城市' })
-  city!: string;
+  @Column({ name: 'city', type: 'varchar', length: 100, nullable: true, comment: '所在城市' })
+  city!: string | null;
 
-  @Column({ name: 'profession', length: 100, nullable: true, comment: '职业' })
-  profession!: string;
+  @Column({ name: 'profession', type: 'varchar', length: 100, nullable: true, comment: '职业' })
+  profession!: string | null;
 
   // 一对一关联认证信息
   // 与 Auth 实体存在双向循环引用：此处使用字符串目标，

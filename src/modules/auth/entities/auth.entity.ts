@@ -32,7 +32,7 @@ export class Auth extends BaseEntity {
   status!: Status;
 
   @Column({ name: 'last_login_at', type: 'datetime', nullable: true, comment: '最后登录时间' })
-  lastLoginAt!: Date;
+  lastLoginAt!: Date | null;
 
   @Column({
     name: 'last_login_ip',
@@ -41,13 +41,13 @@ export class Auth extends BaseEntity {
     nullable: true,
     comment: '最后登录IP',
   })
-  lastLoginIp?: string;
+  lastLoginIp!: string | null;
 
   @Column({ name: 'login_attempts', type: 'int', default: 0, comment: '登录失败次数' })
   loginAttempts!: number;
 
   @Column({ name: 'locked_at', type: 'datetime', nullable: true, comment: '账户锁定时间' })
-  lockedAt?: Date;
+  lockedAt!: Date | null;
 
   @Column({
     name: 'password_changed_at',
@@ -55,7 +55,7 @@ export class Auth extends BaseEntity {
     nullable: true,
     comment: '密码最后修改时间',
   })
-  passwordChangedAt?: Date;
+  passwordChangedAt!: Date | null;
 
   // 一对一关联用户信息（反向侧，不持有外键；级联规则由 User 侧持有外键处声明）
   @OneToOne(() => User, (user) => user.auth)
