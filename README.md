@@ -1,70 +1,42 @@
 # NestJS Template
 
-基于 NestJS 12 构建的精简后端 API 模板，聚焦「统一接口规范 + 日志记录 + 基础认证」，提供开箱即用、二次开发友好的开发基础。
+基于 NestJS 12 + TypeORM + MySQL 构建的后端 API 模板，内置 JWT 双令牌认证、统一响应规范、Swagger 文档自动生成等工程化能力，可与 [frontend-template](https://github.com/Rouarn/frontend-template) 配套使用。
 
-## 🚀 核心特性
+> **内部项目说明**：本模板仅限团队内部使用，未对外发布许可。开发依赖中的 `@vakao-ui/scripts-utils` 为团队私有包，需配置团队 npm 源后方可安装。
 
-- **模块化架构**: 清晰的领域分层，核心模块 (Auth, Users, Files) 职责分离。
-- **基础认证系统 (Auth)**:
-  - **JWT 双令牌**: Access Token (短效) + Refresh Token (长效，自校验 JWT，无需服务端存储)。
-  - **安全防护**: SVG 验证码（服务端 HMAC 签名、5 分钟有效，登录/注册强制校验），bcrypt 密码加密（哈希内嵌盐值），登录失败锁定策略（指数退避）。
-  - **核心流程**: 登录、注册、注销、修改密码、刷新令牌、获取当前用户信息。
-- **文件服务 (Files)**:
-  - **本地存储适配**: 封装统一的存储接口，支持文件上传、下载与流式传输。
-  - **严格校验**: 可配置的文件类型 (MIME) 与大小限制。
-  - **元数据管理**: 完整记录文件信息（原名、大小、MIME、存储路径）至数据库。
-- **健壮的基础设施**:
-  - **统一配置**: 基于 `AppConfigService` 的强类型配置管理。
-  - **数据库**: TypeORM + MySQL 8；开发环境支持实体自动同步（`synchronize`，生产环境强制关闭），另提供 `db:init` 脚本一键建库建表并初始化管理员。
-  - **标准化响应**: 统一的 API 响应格式 (Interceptors) 与全局异常处理 (Filters)。
-  - **请求追踪**: 全局 `requestId` 链路，请求入口/出口结构化日志。
-  - **API 文档**: 集成 Swagger (OpenAPI 3)，自动生成接口文档。
+## 技术栈
 
-> 💡 本模板有意省略了 RBAC 权限体系与缓存层，以保持骨架精简；如需缓存，按需引入 `ioredis` 即可。
+| 分类 | 技术                       | 说明                                   |
+| ---- | -------------------------- | -------------------------------------- |
+| 框架 | NestJS 12 + TypeScript 6   | 模块化服务端框架，完整类型安全         |
+| 数据 | MySQL 8 + TypeORM          | 关系型数据库 + ORM，开发期结构自动同步 |
+| 认证 | @nestjs/jwt + bcryptjs     | JWT 双令牌 + 密码哈希                  |
+| 文档 | @nestjs/swagger            | OpenAPI 3 文档自动生成（CLI 插件）     |
+| 日志 | nest-winston + winston     | 结构化日志，按日轮转文件               |
+| 校验 | class-validator + joi      | DTO 校验 + 环境变量校验                |
+| 安全 | helmet + @nestjs/throttler | 安全响应头 + 接口限流                  |
+| 规范 | ESLint + Prettier + Husky  | lint / 格式化 / 提交检查               |
+| 工具 | pnpm                       | 依赖管理                               |
 
-## 🛠 技术栈
-
-| 类别       | 技术选型         | 说明                        |
-| ---------- | ---------------- | --------------------------- |
-| **框架**   | NestJS 12        | 核心服务端框架 (TypeScript) |
-| **语言**   | TypeScript 6     | 强类型开发体验              |
-| **数据库** | MySQL 8          | 关系型数据库                |
-| **ORM**    | TypeORM          | 数据库对象映射              |
-| **文档**   | Swagger          | API 接口文档生成            |
-| **工具链** | ESLint, Prettier | 代码规范与格式化            |
-| **包管理** | pnpm             | 高效的依赖管理              |
-
-## 📦 快速开始
-
-### 1. 环境准备
-
-确保本地已安装以下环境：
-
-- **Node.js**: >= 22.18.0
-- **pnpm**: >= 10.15.0
-- **MySQL**: >= 8.0
-
-### 2. 安装依赖
+## 快速开始
 
 ```bash
+git clone https://github.com/Rouarn/nestjs-template.git
+cd nestjs-template
+
+# 前提：Node.js >= 22.18.0、pnpm >= 10.15.0、MySQL >= 8.0，
+# 且已配置团队 npm 源（私有依赖 @vakao-ui/scripts-utils 需要）
 pnpm install
 ```
 
-### 3. 配置环境变量
+### 配置环境变量
 
-参考项目根目录下的 `.env.development`，按需创建或修改 `.env.development`（也可使用 `.env` 兜底），并根据实际环境调整：
+参考根目录 [.env.development](.env.development) 按需调整（`.env` 兜底）：
 
 ```env
 # --- 应用基础 ---
-NODE_ENV=development
-NEST_PORT=3000
+NEST_PORT=8898
 NEST_APP_TITLE=NestJS Template
-NEST_BASE_URL=http://localhost:3000
-
-# --- API 版本控制（默认 header：请求头 X-Api-Version，缺省版本 1；改为 uri 则路径形如 /api/v1） ---
-NEST_API_PREFIX=api
-NEST_API_VERSIONING_TYPE=header
-NEST_API_DEFAULT_VERSION=1
 
 # --- 数据库 (MySQL) ---
 NEST_DATABASE_HOST=localhost
@@ -73,99 +45,181 @@ NEST_DATABASE_USER=root
 NEST_DATABASE_PASSWORD=your_password
 NEST_DATABASE_NAME=nestjs_app
 NEST_DATABASE_SYNCHRONIZE=true
-NEST_DATABASE_LOGGING=false
 
-# --- JWT 认证（secret 同时用作验证码令牌的 HMAC 密钥，生产环境务必更换） ---
+# --- JWT 认证（生产环境务必更换） ---
 NEST_JWT_SECRET=replace_with_your_secure_secret_key
-NEST_JWT_ACCESS_TOKEN_TTL=3600      # 1小时
-NEST_JWT_REFRESH_TOKEN_TTL=604800   # 7天
-
-# --- 文件上传 ---
-NEST_STATIC_ASSETS_DIR=./static
+NEST_JWT_ACCESS_TOKEN_TTL=3600
+NEST_JWT_REFRESH_TOKEN_TTL=604800
 ```
 
-### 4. 初始化数据库
+> `NEST_DATABASE_SYNCHRONIZE=true` 时实体结构变更自动同步到表，生产环境强制关闭。
 
-全新数据库可执行初始化脚本（自动建库、建表并创建管理员 `admin / admin123`）：
-
-```bash
-pnpm run db:init
-# 也可指定环境：node scripts/init-db.js --env=production
-```
-
-开发环境开启 `NEST_DATABASE_SYNCHRONIZE=true` 后，实体结构变更会自动同步到表结构；生产环境该配置强制关闭。
-
-### 5. 启动项目
+### 初始化数据库并启动
 
 ```bash
-# 开发模式 (热更新)
-pnpm run start:dev
-
-# 生产模式（需先执行 pnpm run build:prod 构建产物）
-pnpm run start:prod
+pnpm run db:init        # 自动建库、建表并创建管理员 admin / admin123
+pnpm run start:dev      # 开发模式（Watch）
 ```
 
 启动成功后：
 
-- **API 服务**: `http://localhost:3000/api`（默认通过请求头 `X-Api-Version: 1` 指定版本）
-- **Swagger 文档**: `http://localhost:3000/api-docs`（仅非生产环境开放）
+- **API 服务**：`http://localhost:8898/api`
+- **Swagger UI**：`http://localhost:8898/api-docs`（仅非生产环境开放）
+- **JSON 文档**：`http://localhost:8898/static/api-docs.json`
 
-## 🧩 核心模块说明
+### 常用命令
 
-### 认证模块 (Auth)
+| 命令                  | 说明                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| `pnpm run start:dev`  | 启动开发服务器（Watch Mode）                                     |
+| `pnpm run start:prod` | 启动生产构建产物                                                 |
+| `pnpm run build:prod` | 构建生产版本                                                     |
+| `pnpm run code:check` | 代码检查（Format + Lint + TypeCheck）                            |
+| `pnpm run code:fix`   | 自动修复格式与 Lint 问题                                         |
+| `pnpm run g:res`      | 资源脚手架（生成模块骨架：module/controller/service/dto/entity） |
+| `pnpm run db:init`    | 初始化数据库（建库建表 + 管理员账号）                            |
+| `pnpm run deploy`     | 生产部署打包（先 code:fix 再 deploy:build）                      |
 
-位于 `src/modules/auth`。
+> 说明：lint、格式化、暂存区检查由 ESLint + Prettier + lint-staged 承担；git hooks 由 Husky 管理（`pnpm install` 时 prepare 脚本自动启用），提交信息经 commitlint 按 Conventional Commits 校验。
 
-- **Captcha**: `GET /auth/captcha`（返回 Base64 编码的 SVG 图片与签名令牌，有效期 5 分钟）
-- **Captcha Verify**: `POST /auth/captcha/verify`（独立预校验，可选使用）
-- **Login**: `POST /auth/login`（需携带 `captchaToken` + `captchaCode`，返回 Access + Refresh Token）
-- **Register**: `POST /auth/register`（需携带 `captchaToken` + `captchaCode`）
-- **Refresh**: `POST /auth/refresh`（换取新 Token）
-- **Get User Info**: `GET /auth/getUserInfo`（获取当前登录用户信息）
-- **Change Password**: `PUT /auth/change-password`
-- **Logout**: `POST /auth/logout`
-
-> 接口受全局 `JwtAuthGuard` 保护，公开接口使用 `@Public()` 装饰器标记。
-> 无状态验证码无法防止同一令牌在有效期内重复使用；如需「一次性消费」需自行引入缓存（如 Redis）。
-
-### 用户模块 (Users)
-
-位于 `src/modules/users`。
-
-- 提供标准的用户资料 CRUD 操作。
-- 与 Auth 单向依赖（Auth → Users），通过 `auth` 一对一关联；账号的启用/禁用状态存放在认证记录上。
-- 支持分页查询、批量删除、状态切换等管理功能；删除用户时在事务内联动删除认证记录。
-
-## 📜 常用命令
-
-| 命令                  | 说明                                     |
-| --------------------- | ---------------------------------------- |
-| `pnpm run start:dev`  | 启动开发服务器 (Watch Mode)              |
-| `pnpm run db:init`    | 初始化数据库（建库建表 + 管理员账号）    |
-| `pnpm run build:prod` | 构建生产环境代码                         |
-| `pnpm run code:check` | 运行代码检查 (Format + Lint + TypeCheck) |
-| `pnpm run code:fix`   | 自动修复代码格式与 Lint 问题             |
-
-## 📂 目录结构概览
+## 项目结构
 
 ```
 src/
-├── common/            # 通用基础设施 (Guards, Filters, Interceptors, Pipes)
-├── config/            # 全局配置模块 (环境变量映射)
-├── database/          # 数据库配置
-├── modules/           # 业务功能模块
-│   ├── auth/          # 认证相关
-│   └── users/         # 用户管理
-└── shared/            # 共享服务模块
-    ├── files/         # 文件存储服务
-    └── logger/        # 日志服务
+├── common/              # 通用基础设施（Guards / Filters / Interceptors / Pipes）
+├── config/              # 全局配置模块（环境变量映射）
+├── database/            # 数据库连接配置
+├── modules/             # 业务功能模块
+│   ├── auth/            # 认证（验证码 / 登录注册 / 令牌刷新 / 改密）
+│   └── users/           # 用户管理（CRUD / 分页 / 状态切换）
+└── shared/              # 共享服务
+    ├── files/           # 文件存储服务（上传 / 下载 / 元数据）
+    └── logger/          # 日志服务
+scripts/                 # 工程脚本（建库初始化 / 资源脚手架 / 部署打包）
+static/                  # 静态资源（Swagger JSON 文档、上传文件目录）
 ```
 
-## 🤝 贡献与规范
+## 接口规范
 
-- **Git Commit**: 请遵循 Conventional Commits 规范 (e.g., `feat: add login api`).
-- **Code Style**: 提交前请运行 `pnpm run code:check` 确保代码符合 Prettier 和 ESLint 标准.
+### 统一响应信封
 
-## 📄 License
+所有接口经全局 `ResponseInterceptor` 包装为统一结构，业务代码只需返回裸数据：
 
-UNLICENSED
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "timestamp": "2026-10-15T00:00:00.000Z",
+  "data": {}
+}
+```
+
+异常经全局 `ExceptionFilter` 转换为同一信封（`code` 为业务错误码），前端 [HTTP 客户端](https://github.com/Rouarn/frontend-template) 按 `code === 200` 判定成功并解包 `data`。
+
+### 分页响应
+
+分页接口由拦截器将 service 返回的 `{ list, total }` 中间形态统一转换为：
+
+```json
+{
+  "records": [],
+  "total": 100,
+  "totalPages": 10,
+  "current": 1,
+  "size": 10
+}
+```
+
+分页参数为 `current`（页码）+ `size`（每页数量）；DTO 文档标注以实际响应结构为准。
+
+### 请求追踪与日志
+
+- 全局注入 `requestId` 链路标识，请求入口/出口输出结构化日志
+- 日志按日轮转写入文件，开发环境同步控制台输出
+
+## API 一览
+
+| 模块 | 端点                        | 方法   | 说明                                |
+| ---- | --------------------------- | ------ | ----------------------------------- |
+| 系统 | `/api`                      | GET    | 服务健康检查                        |
+| 系统 | `/api/version` `/api/info`  | GET    | 版本与服务信息                      |
+| 认证 | `/api/auth/captcha`         | GET    | SVG 验证码（HMAC 签名，5 分钟有效） |
+| 认证 | `/api/auth/captcha/verify`  | POST   | 验证码独立预校验                    |
+| 认证 | `/api/auth/register`        | POST   | 注册（需验证码）                    |
+| 认证 | `/api/auth/login`           | POST   | 登录（需验证码，返回双令牌）        |
+| 认证 | `/api/auth/refresh`         | POST   | 刷新令牌                            |
+| 认证 | `/api/auth/getUserInfo`     | GET    | 当前登录用户信息                    |
+| 认证 | `/api/auth/change-password` | PUT    | 修改密码                            |
+| 认证 | `/api/auth/logout`          | POST   | 注销                                |
+| 用户 | `/api/users`                | GET    | 用户分页列表                        |
+| 用户 | `/api/users`                | POST   | 创建用户                            |
+| 用户 | `/api/users/{id}`           | GET    | 用户详情                            |
+| 用户 | `/api/users/{id}`           | PATCH  | 更新用户                            |
+| 用户 | `/api/users/{id}`           | DELETE | 删除用户（事务联动删除认证记录）    |
+| 用户 | `/api/users/{id}/status`    | PATCH  | 切换启用/禁用状态                   |
+| 用户 | `/api/users/batch-delete`   | POST   | 批量删除                            |
+| 文件 | `/api/upload`               | POST   | 单文件上传                          |
+| 文件 | `/api/upload/multiple`      | POST   | 多文件上传                          |
+
+完整参数与 Schema 见 Swagger UI；接口默认受全局 `JwtAuthGuard` 保护，公开接口以 `@Public()` 装饰器标记。
+
+### 与前端模板联动
+
+前端模板的 `pnpm gen:api` 会拉取本服务 `/static/api-docs.json` 自动生成 TypeScript 类型（`OpenAPI.*`），实现契约同步。修改实体或 DTO 后：
+
+1. 启动本服务（Swagger CLI 插件自动生成 Schema）
+2. 前端执行 `pnpm gen:api`，类型自动更新
+
+> 实体 nullable 列需显式标注 `string | null` / `Date | null`，否则 Swagger CLI 插件按 TS 类型推断为必填，导致前端可选性失真；联合类型字段必须为 `@Column` 声明显式 `type`（TypeORM 反射不支持联合类型）。
+
+## 认证体系
+
+### JWT 双令牌
+
+- **Access Token**（短效，默认 1h）：接口鉴权
+- **Refresh Token**（长效，默认 7d）：自校验 JWT，换取新令牌，无需服务端存储
+
+### 安全策略
+
+- **SVG 验证码**：服务端 HMAC 签名，5 分钟有效，登录/注册强制校验
+- **密码加密**：bcrypt 哈希（内嵌盐值）
+- **防爆破**：登录失败指数退避锁定
+- **无状态限制**：验证码无法防同一令牌有效期内重复使用，如需「一次性消费」自行引入 Redis
+
+> 本模板有意省略 RBAC 权限体系与缓存层以保持骨架精简；如需缓存，按需引入 `ioredis` 即可。
+
+## 常见问题
+
+### 请求为什么返回 404？
+
+接口启用了 API 版本控制，默认通过请求头 `X-Api-Version: 1` 指定版本（配置项 `NEST_API_VERSIONING_TYPE`，改为 `uri` 则路径形如 `/api/v1`）。前端 HTTP 客户端已内置该请求头。
+
+### 实体字段改了但表结构没变？
+
+开发环境需 `NEST_DATABASE_SYNCHRONIZE=true`；生产环境强制关闭，结构变更请使用迁移脚本。
+
+### 如何新增一个业务模块？
+
+运行 `pnpm run g:res <name>` 生成模块骨架（module / controller / service / dto / entity），再按业务补充逻辑。
+
+### 提交被钩子拦截？
+
+提交信息需符合 Conventional Commits（`type: 描述`），代码需通过 Prettier / ESLint / `tsc --noEmit` 检查；先运行 `pnpm run code:fix` 修复后再提交。
+
+### 清理测试文件
+
+`pnpm run clean:tests` 递归删除项目中所有 `.spec.ts` 测试文件（模板不包含测试运行器，按需清理脚手架残留）。
+
+## 参与贡献
+
+1. 创建特性分支 (`git checkout -b feature/xxx`)
+2. 提交更改（遵循 Conventional Commits，commit-msg 钩子会校验格式）
+3. 推送并开启 Pull Request
+
+## 许可
+
+仅限团队内部使用（UNLICENSED），未授予外部使用、修改或分发权利。
+
+## 作者
+
+**Rouarn** — <woyuxiaji@foxmail.com> · [GitHub](https://github.com/Rouarn) · [shixian.xyz](http://www.shixian.xyz)
