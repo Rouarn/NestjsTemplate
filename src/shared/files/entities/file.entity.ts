@@ -1,4 +1,4 @@
-import { BaseEntity } from '#/database/index.js';
+import { BaseEntity } from '../../../database/index.js';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
@@ -22,7 +22,9 @@ export class File extends BaseEntity {
   @Column({ name: 'mime_type', length: 128, comment: '文件真实MIME类型' })
   mimeType!: string;
 
-  @Column({ name: 'size', type: 'bigint', unsigned: true, comment: '文件大小(字节)' })
+  // 上传大小上限由 NEST_UPLOAD_MAX_SIZE 控制（默认 10MB），int unsigned 足够；
+  // 用 bigint 会被 mysql2 以字符串返回，与 `number` 类型声明不符，这里改用 int
+  @Column({ name: 'size', type: 'int', unsigned: true, comment: '文件大小(字节)' })
   size!: number;
 
   // 联合类型 string | null 会使 design:type 元数据退化为 Object，必须显式声明列类型

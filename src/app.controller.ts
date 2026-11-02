@@ -1,22 +1,14 @@
 /**
  * 应用根控制器
  *
- * 功能说明:
- * - 提供应用的基础 API 接口
- * - 健康检查和状态监控
- * - 欢迎页面和基本信息展示
- *
- * 特点:
- * - 公共访问，无需认证
- * - 集成 Swagger 文档
- * - 简单的状态检查接口
- *
- * @author NestJS Template
- * @version 1.0.0
+ * 提供健康检查与基础信息服务，全部为公开接口（不要求登录）。
+ * 健康检查用于负载均衡 / 容器探针，因此跳过限流并真实探测数据库。
  */
-
-import { Public } from '#/common/decorators/index.js';
+import { Public } from './common/decorators/index.js';
+import { BusinessException } from './common/exceptions/index.js';
+import { DatabaseService } from './database/index.js';
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   ApiOperation,
   ApiProperty,
@@ -27,107 +19,106 @@ import {
 import { AppService } from './app.service.js';
 
 class HelloResponseDto {
-  @ApiProperty({ description: '欢迎消息', example: 'Hello NestJS-Template' })
+  @ApiProperty({ description: '欢迎消息', example: 'Hello nestjs-template v0.0.1' })
   message!: string;
-}
 
-class VersionResponseDto {
-  @ApiProperty({ description: '版本号', example: '1.0.0' })
+  @ApiProperty({ description: '服务端当前时间（ISO 8601）', example: '2026-01-01T00:00:00.000Z' })
+  timestamp!: string;
+
+  @ApiProperty({ description: '版本号', example: '0.0.1' })
   version!: string;
-
-  @ApiProperty({ description: '应用名称', example: 'NestJS-Template' })
-  name!: string;
-
-  @ApiPropertyOptional({ description: '应用描述', example: 'NestJS 应用模板' })
-  description?: string;
 }
 
 class AppInfoResponseDto {
-  @ApiProperty({ description: '版本号', example: '1.0.0' })
-  version!: string;
-
-  @ApiProperty({ description: '应用名称', example: 'NestJS-Template' })
+  @ApiProperty({ description: '应用名称', example: 'nestjs-template' })
   name!: string;
 
-  @ApiPropertyOptional({ description: '应用描述', example: 'NestJS 应用模板' })
+  @ApiProperty({ description: '版本号', example: '0.0.1' })
+  version!: string;
+
+  @ApiPropertyOptional({ description: '应用描述' })
   description?: string;
 
-  @ApiPropertyOptional({ description: '作者', example: 'NestJS Template' })
+  @ApiPropertyOptional({ description: '作者' })
   author?: string;
 
-  @ApiPropertyOptional({ description: '许可证', example: 'MIT' })
+  @ApiPropertyOptional({ description: '许可证' })
   license?: string;
+
+  @ApiProperty({ description: '进程运行时长（秒）', example: 12.34 })
+  uptime!: number;
 }
 
-/**
- * 应用根控制器
- * 处理应用级别的基础请求
- */
+class HealthResponseDto {
+  @ApiProperty({ description: '服务状态', example: 'ok' })
+  status!: 'ok';
+
+  @ApiProperty({ description: '数据库状态', example: 'up' })
+  database!: 'up';
+
+  @ApiProperty({ description: '进程运行时长（秒）', example: 12.34 })
+  uptime!: number;
+
+  @ApiProperty({ description: '检查时间（ISO 8601）' })
+  timestamp!: string;
+}
+
 @ApiTags('应用')
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly databaseService: DatabaseService,
+  ) {}
 
-  /**
-   * 获取应用欢迎信息
-   *
-   * 用途:
-   * - 验证应用是否正常运行
-   * - 提供基本的健康检查
-   * - 展示应用基本信息
-   *
-   * @returns 欢迎信息字符串
-   */
-  @ApiOperation({
-    summary: '获取欢迎信息',
-    description: '返回应用的欢迎信息，用于健康检查和状态验证',
-  })
-  @ApiResponse({ status: 200, description: '成功返回欢迎信息', type: HelloResponseDto })
-  @Public() // 公共接口，无需认证
+  @ApiOperation({ summary: '获取欢迎信息', description: '最简单的存活检查，不访问数据库' })
+  @ApiResponse({ status: 200, description: '成功', type: HelloResponseDto })
+  @Public()
   @Get()
   getHello(): HelloResponseDto {
     return this.appService.getHello();
   }
 
-  /**
-   * 获取应用版本信息
-   *
-   * 用途:
-   * - 提供应用的版本号
-   * - 用于版本管理和监控
-   * - 展示应用的构建信息
-   *
-   * @returns 版本信息对象
-   */
-  @ApiOperation({
-    summary: '获取版本信息',
-    description: '返回应用的版本号和构建信息',
-  })
-  @ApiResponse({ status: 200, description: '成功返回版本信息', type: VersionResponseDto })
-  @Public() // 公共接口，无需认证
+  @ApiOperation({ summary: '获取版本信息' })
+  @ApiResponse({ status: 200, description: '成功', type: AppInfoResponseDto })
+  @Public()
   @Get('version')
-  getVersion(): VersionResponseDto {
-    return this.appService.getVersion();
+  getVersion(): AppInfoResponseDto {
+    return this.appService.getAppInfo();
   }
 
-  /**
-   * 获取应用完整信息
-   *
-   * 用途:
-   * - 返回应用的完整信息
-   * - 包含版本、描述、作者等详细信息
-   * - 用于系统信息展示和调试
-   *
-   * @returns 应用完整信息对象
-   */
-  @ApiOperation({
-    summary: '获取应用完整信息',
-    description: '返回应用的完整信息，包含版本、描述、作者等详细信息',
-  })
-  @ApiResponse({ status: 200, description: '成功返回应用完整信息', type: AppInfoResponseDto })
-  @Public() // 公共接口，无需认证
+  @ApiOperation({ summary: '获取应用信息' })
+  @ApiResponse({ status: 200, description: '成功', type: AppInfoResponseDto })
+  @Public()
   @Get('info')
   getAppInfo(): AppInfoResponseDto {
     return this.appService.getAppInfo();
+  }
+
+  /**
+   * 健康检查
+   *
+   * 真实执行 `SELECT 1`：进程存活但数据库断开时返回 503，
+   * 便于负载均衡摘除实例。跳过节流，避免探针被限流误判。
+   */
+  @ApiOperation({ summary: '健康检查', description: '检查进程与数据库连通性，供探针使用' })
+  @ApiResponse({ status: 200, description: '健康', type: HealthResponseDto })
+  @ApiResponse({ status: 503, description: '数据库不可用' })
+  @Public()
+  @SkipThrottle()
+  @Get('health')
+  async health(): Promise<HealthResponseDto> {
+    const databaseUp = await this.databaseService.ping();
+
+    if (!databaseUp) {
+      throw BusinessException.unavailable('服务不可用', { database: 'down' });
+    }
+
+    return {
+      status: 'ok',
+      database: 'up',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    };
   }
 }

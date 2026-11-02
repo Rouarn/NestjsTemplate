@@ -1,62 +1,80 @@
 /**
- * 应用程序启动入口文件
+ * 应用启动入口
  *
- * 负责初始化NestJS应用程序，配置中间件、静态资源、API文档等
- *
- * @author NestJS Template
- * @version 1.0.0
+ * 负责创建 Nest 应用、注册全局中间件（安全头 / 压缩 / CORS）、
+ * API 版本控制、静态资源与 Swagger 文档，并开启优雅停机。
  */
-
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cors from 'cors';
-import * as fs from 'fs';
 import helmet from 'helmet';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import * as path from 'path';
+import { existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
 import 'reflect-metadata';
 import { AppModule } from './app.module.js';
 import { BootstrapLogHelper } from './common/helpers/index.js';
 import type { StaticConfig } from './config/index.js';
 import { AppConfigService } from './config/index.js';
+import type { RequestHandler } from 'express';
+import type { ServerResponse } from 'node:http';
+
+/** JSON API 的收紧型 CSP（Swagger UI 需要内联脚本，单独放行） */
+const API_CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
  * 解析静态资源路径
+ * @param staticConfig 静态资源配置
+ * @returns 绝对路径
  */
 function resolveStaticPath(staticConfig: StaticConfig): string {
-  if (path.isAbsolute(staticConfig.root)) {
-    return staticConfig.root;
-  }
-
-  return path.resolve(process.cwd(), staticConfig.root);
+  return isAbsolute(staticConfig.root)
+    ? staticConfig.root
+    : resolve(process.cwd(), staticConfig.root);
 }
 
 /**
- * 配置应用基础设置
+ * 配置安全头、压缩与 CORS
+ *
+ * `trust proxy` 必须最先设置：后续的 `req.ip` / `req.protocol`（限流、审计、日志）
+ * 都依赖它来决定是否信任 `X-Forwarded-*`。
  */
 function configureApp(app: NestExpressApplication, appConfig: AppConfigService): void {
-  // 安全响应头（nosniff、X-Frame-Options 等）
+  if (appConfig.trustProxy > 0) {
+    app.set('trust proxy', appConfig.trustProxy);
+  }
+
   app.use(
     helmet({
-      // JSON API 无需 CSP；默认策略会拦截 Swagger UI 的内联脚本导致文档页打不开
+      // Swagger UI 依赖内联脚本，全局 CSP 交由下方按路径注入
       contentSecurityPolicy: false,
-      // 上传的静态资源需允许跨域加载（前后端分离时前端在不同源）
+      // 上传资源需要被跨源页面加载（前后端分离部署）
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 
-  // 启用 GZIP 压缩 Accept-Encoding: gzip
   app.use(compression());
-
-  // 配置CORS跨域策略
   app.use(cors(appConfig.corsOptions));
+
+  // 非文档路径统一收紧 CSP：JSON API 不需要任何外部资源
+  const swaggerPrefix = appConfig.swaggerOptions.prefix;
+  const swaggerEnabled = appConfig.swaggerOptions.enabled;
+  const apiCsp: RequestHandler = (req, res, next) => {
+    if (swaggerEnabled && req.path.startsWith(swaggerPrefix)) {
+      next();
+      return;
+    }
+    res.setHeader('Content-Security-Policy', API_CONTENT_SECURITY_POLICY);
+    next();
+  };
+  app.use(apiCsp);
 }
 
 /**
- * 配置API版本控制
+ * 配置 API 版本控制
  */
 function configureVersioning(app: NestExpressApplication, appConfig: AppConfigService): void {
   const versionConfig = appConfig.apiVersioning;
@@ -67,31 +85,47 @@ function configureVersioning(app: NestExpressApplication, appConfig: AppConfigSe
       prefix: `${versionConfig.prefix}/v`,
       defaultVersion: versionConfig.defaultVersion,
     });
-  } else if (versionConfig.type === 'header') {
-    app.setGlobalPrefix(versionConfig.prefix);
-    app.enableVersioning({
-      type: VersioningType.HEADER,
-      header: versionConfig.header,
-      defaultVersion: versionConfig.defaultVersion,
-    });
+    return;
   }
+
+  app.setGlobalPrefix(versionConfig.prefix);
+  app.enableVersioning({
+    type: VersioningType.HEADER,
+    header: versionConfig.header,
+    defaultVersion: versionConfig.defaultVersion,
+  });
 }
 
 /**
  * 配置静态资源服务
+ *
+ * 上传文件以 UUID 命名、内容不可变，可长缓存；同目录下的 `api-docs.json`
+ * 每次启动都会重写，必须显式禁用缓存，否则前端拿到的是旧契约。
  */
 function configureStaticAssets(app: NestExpressApplication, appConfig: AppConfigService): string {
   const staticConfig = appConfig.staticAssetsOptions;
   const staticPath = resolveStaticPath(staticConfig);
 
   BootstrapLogHelper.logStaticResourceConfig(staticConfig, staticPath);
-  app.useStaticAssets(staticPath, staticConfig);
+
+  app.useStaticAssets(staticPath, {
+    prefix: staticConfig.prefix,
+    maxAge: '30d',
+    immutable: true,
+    setHeaders: (res: ServerResponse, filePath: string) => {
+      if (filePath.endsWith('.json')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  });
 
   return staticPath;
 }
 
 /**
- * 配置Swagger API文档
+ * 配置并导出 Swagger 文档
+ *
+ * JSON 先写临时文件再 rename，避免前端在启动瞬间读到半截文件。
  */
 function configureSwagger(
   app: NestExpressApplication,
@@ -107,37 +141,33 @@ function configureSwagger(
     .setDescription(swaggerOptions.description)
     .setVersion(swaggerOptions.version);
 
-  // 如果启用了 Header 版本控制，添加全局 Header 参数
+  // Header 版本控制模式下，把版本号声明为全局请求头
   if (appConfig.apiVersioning.type === 'header') {
     builder.addGlobalParameters({
       name: appConfig.apiVersioning.header,
       in: 'header',
       description: 'API 版本号',
       required: false,
-      schema: {
-        type: 'string',
-        default: appConfig.apiVersioning.defaultVersion,
-      },
+      schema: { type: 'string', default: appConfig.apiVersioning.defaultVersion },
     });
   }
 
-  const options = builder.build();
+  const document = SwaggerModule.createDocument(app, builder.build());
+  SwaggerModule.setup(swaggerOptions.prefix, app, document, {
+    swaggerOptions: { persistAuthorization: true },
+  });
 
-  const document = SwaggerModule.createDocument(app, options);
-  SwaggerModule.setup(swaggerOptions.prefix, app, document);
+  const apiDocPath = join(staticPath, swaggerOptions.filename);
+  mkdirSync(staticPath, { recursive: true });
 
-  // 导出API文档为JSON
-  const apiDocPath = path.join(staticPath, swaggerOptions.filename);
-
-  if (!fs.existsSync(staticPath)) {
-    fs.mkdirSync(staticPath, { recursive: true });
+  // 目标路径被同名目录占用时先清理，避免写入失败
+  if (existsSync(apiDocPath) && statSync(apiDocPath).isDirectory()) {
+    rmSync(apiDocPath, { recursive: true });
   }
 
-  if (fs.existsSync(apiDocPath) && fs.statSync(apiDocPath).isDirectory()) {
-    fs.rmSync(apiDocPath, { recursive: true });
-  }
-
-  fs.writeFileSync(apiDocPath, JSON.stringify(document, null, 2));
+  const tempPath = `${apiDocPath}.tmp`;
+  writeFileSync(tempPath, JSON.stringify(document, null, 2));
+  renameSync(tempPath, apiDocPath);
 
   BootstrapLogHelper.logApiDocumentSaved(
     apiDocPath,
@@ -148,39 +178,32 @@ function configureSwagger(
 }
 
 async function bootstrap(): Promise<void> {
-  try {
-    // 创建应用实例
-    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-      bufferLogs: true, // 缓存日志直到 Logger 初始化完成
-    });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true, // 缓存日志直到 Winston 接管
+  });
 
-    // 获取配置服务
-    const appConfig = app.get(AppConfigService);
+  const appConfig = app.get(AppConfigService);
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
-    // 配置 Winston 日志服务
-    app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
+  configureApp(app, appConfig);
+  configureVersioning(app, appConfig);
+  const staticPath = configureStaticAssets(app, appConfig);
+  configureSwagger(app, staticPath, appConfig);
 
-    // 配置应用组件
-    configureApp(app, appConfig); // 配置基础设置
-    configureVersioning(app, appConfig); // 配置版本控制
-    const staticPath = configureStaticAssets(app, appConfig); // 配置静态资源服务
-    configureSwagger(app, staticPath, appConfig); // 配置Swagger API文档
+  // 让 SIGTERM/SIGINT 触发各模块的 onApplicationShutdown（含数据库连接关闭）
+  app.enableShutdownHooks();
 
-    // 启动应用
-    const port = appConfig.port;
-    await app.listen(port);
+  await app.listen(appConfig.port);
 
-    // 打印启动完成信息
-    await BootstrapLogHelper.logApplicationStartup(
-      app,
-      appConfig,
-      appConfig.apiVersioning,
-      appConfig.staticAssetsOptions,
-    );
-  } catch (error) {
-    await BootstrapLogHelper.logApplicationError(error);
-    process.exit(1);
-  }
+  await BootstrapLogHelper.logApplicationStartup(
+    app,
+    appConfig,
+    appConfig.apiVersioning,
+    appConfig.staticAssetsOptions,
+  );
 }
 
-void bootstrap();
+bootstrap().catch((error: unknown) => {
+  BootstrapLogHelper.logApplicationError(error);
+  process.exit(1);
+});

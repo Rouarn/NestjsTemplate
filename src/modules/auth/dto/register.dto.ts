@@ -1,4 +1,4 @@
-import { Gender } from '#/common/enums/index.js';
+import { Gender } from '../../../common/enums/index.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {

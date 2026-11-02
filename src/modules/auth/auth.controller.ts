@@ -1,5 +1,5 @@
-import { GetCurrentUser, Public } from '#/common/decorators/index.js';
-import type { CurrentUser } from '#/common/interfaces/index.js';
+import { GetCurrentUser, Public } from '../../common/decorators/index.js';
+import type { CurrentUser } from '../../common/interfaces/index.js';
 import {
   Body,
   ClassSerializerInterceptor,
@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { User } from '../users/entities/user.entity.js';
 import { AuthService } from './auth.service.js';
 import {
@@ -44,6 +45,8 @@ export class AuthController {
     description: '生成验证码图片和对应的token，支持防爬机制和安全增强',
   })
   @ApiResponse({ status: 200, description: '成功获取验证码', type: CaptchaResponseDto })
+  // 验证码生成有 CPU 成本（SVG 绘制），单独限流
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Get('captcha')
   async getCaptcha(): Promise<CaptchaResponseDto> {
@@ -109,6 +112,8 @@ export class AuthController {
     description: '登录成功',
     type: TokenResponseDto,
   })
+  // 登录是最需要防爆破的入口：单独收紧到每分钟 5 次（全局兜底为 100 次）
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Public()
   @Post('login')
   login(@Body() body: LoginDto, @Ip() clientIp: string): Promise<TokenResponseDto> {
@@ -133,6 +138,7 @@ export class AuthController {
     description: '刷新成功',
     type: TokenResponseDto,
   })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
   @Post('refresh')
   refresh(@Body() body: RefreshTokenDto): Promise<TokenResponseDto> {

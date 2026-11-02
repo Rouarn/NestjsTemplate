@@ -1,6 +1,8 @@
-import { Gender } from '#/common/enums/index.js';
-import { BaseEntity } from '#/database/index.js';
-import type { Auth } from '#/modules/auth/entities/auth.entity.js';
+import { Gender, Status } from '../../../common/enums/index.js';
+import { BaseEntity } from '../../../database/index.js';
+import type { Auth } from '../../auth/entities/auth.entity.js';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Exclude, Expose } from 'class-transformer';
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
@@ -36,13 +38,27 @@ export class User extends BaseEntity {
   })
   gender!: Gender | null;
 
-  @Column({ name: 'mobile', type: 'char', length: 11, nullable: true, comment: '手机号' })
+  @Column({
+    name: 'mobile',
+    type: 'char',
+    length: 11,
+    nullable: true,
+    unique: true,
+    comment: '手机号（唯一）',
+  })
   mobile!: string | null;
 
   @Column({ name: 'bio', type: 'text', nullable: true, comment: '个人简介' })
   bio!: string | null;
 
-  @Column({ name: 'email', type: 'varchar', length: 128, nullable: true, comment: '邮箱地址' })
+  @Column({
+    name: 'email',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+    unique: true,
+    comment: '邮箱地址（唯一）',
+  })
   email!: string | null;
 
   @Column({ name: 'birthday', type: 'date', nullable: true, comment: '生日' })
@@ -59,7 +75,24 @@ export class User extends BaseEntity {
   // 避免 ESM 实时绑定在装饰器元数据求值阶段触发 TDZ 错误。
   // 外键 auth_id 由本表持有，ON DELETE CASCADE 必须声明在这一侧才会生效：
   // 删除认证记录时由数据库自动删除对应用户记录。
+  //
+  // 安全说明：@Exclude 保证该关联不会被序列化进响应。Auth 实体上只排除了
+  // password，其余字段（lastLoginIp / loginAttempts / lockedAt 等）属于
+  // 认证内部状态，不应随用户资料接口下发。业务代码仍可直接读取 user.auth。
+  @Exclude()
   @OneToOne('Auth', 'user', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'auth_id' })
   auth!: Auth;
+
+  /**
+   * 账号状态（只读投影）
+   *
+   * 状态实际存放在关联的认证表上；这里以 getter 形式暴露单个字段，
+   * 用于替代历史上「整个 auth 对象被序列化」的做法，保证列表接口仍能拿到状态。
+   */
+  @Expose()
+  @ApiPropertyOptional({ description: '账号状态（来自关联认证记录）', enum: Status })
+  get status(): Status | undefined {
+    return this.auth?.status;
+  }
 }

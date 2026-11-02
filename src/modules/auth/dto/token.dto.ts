@@ -1,4 +1,4 @@
-import { JWT_CONSTANTS } from '#/common/constants/index.js';
+import { JWT_CONSTANTS } from '../../../common/constants/index.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString } from 'class-validator';

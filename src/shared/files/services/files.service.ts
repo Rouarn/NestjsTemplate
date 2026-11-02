@@ -1,4 +1,4 @@
-import { BusinessException } from '#/common/exceptions/index.js';
+import { BusinessException } from '../../../common/exceptions/index.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { fileTypeFromFile } from 'file-type';
@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Logger } from 'winston';
 import { FileUploadResponseDto } from '../dto/index.js';
 import { File } from '../entities/file.entity.js';
+import { isBlockedUploadExtension, isBlockedUploadMime } from '../files.constants.js';
 import type { StorageAdapter } from '../interfaces/index.js';
 import { STORAGE_ADAPTER } from '../interfaces/index.js';
 
@@ -42,6 +43,8 @@ export class FilesService {
     uploaderId?: string,
     storedPaths?: string[],
   ): Promise<FileUploadResponseDto> {
+    let storedPath: string | undefined;
+
     try {
       // 1. 解析真实类型：内容可检测时做防伪校验，不可检测时信任白名单放行的声明类型
       const resolvedType = await this.resolveFileType(file);
@@ -51,7 +54,7 @@ export class FilesService {
       const relativePath = path.join(this.getDatePath(), filename);
 
       // 3. 将临时文件移动到存储目录
-      const storedPath = await this.storage.upload(file.path, relativePath);
+      storedPath = await this.storage.upload(file.path, relativePath);
       storedPaths?.push(storedPath);
 
       // 4. 获取访问 URL 并落库文件元数据
@@ -65,28 +68,25 @@ export class FilesService {
         uploaderId,
       });
 
-      this.logUploadSuccess(file, completeUrl);
+      this.logger.info('file_uploaded', {
+        originalName: this.decodeOriginalName(file.originalname),
+        size: file.size,
+        mimeType: resolvedType.mime,
+        url: completeUrl,
+        uploaderId: uploaderId ?? null,
+      });
 
       return { url, completeUrl };
     } catch (error) {
-      // 校验或存储失败时清理磁盘上的临时文件，避免残留
+      // 校验或存储失败时清理残留：临时文件 + 已落盘文件（例如落库时唯一键冲突）
       await this.removeTempFile(file);
+      if (storedPath) {
+        await this.storage.delete(storedPath);
+        const index = storedPaths?.indexOf(storedPath) ?? -1;
+        if (index >= 0) storedPaths?.splice(index, 1);
+      }
       throw error;
     }
-  }
-
-  /**
-   * 打印文件上传成功日志
-   * 风格与 LoggerMiddleware 的「请求入口」、LoggingInterceptor 的「响应出口」保持一致
-   * @param file Multer 文件对象（取原始文件名与大小）
-   * @param completeUrl 文件完整访问地址
-   */
-  private logUploadSuccess(file: Express.Multer.File, completeUrl: string): void {
-    this.logger.info('┌─ 📁 文件上传成功 ───────────────────────────────────────────────┐');
-    this.logger.info(`│ 📄 原文件名: ${this.decodeOriginalName(file.originalname)}`);
-    this.logger.info(`│ 📦 文件大小: ${this.formatFileSize(file.size)}`);
-    this.logger.info(`│ 🔗 访问地址: ${completeUrl}`);
-    this.logger.info('└─────────────────────────────────────────────────────────────────┘');
   }
 
   /**
@@ -99,25 +99,6 @@ export class FilesService {
   private decodeOriginalName(name: string): string {
     const decoded = Buffer.from(name, 'latin1').toString('utf8');
     return decoded.includes('\uFFFD') ? name : decoded;
-  }
-
-  /**
-   * 将字节数格式化为人类可读的文件大小
-   * @param bytes 文件字节数
-   * @returns 如 248.5 KB / 1.2 MB
-   */
-  private formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-
-    const units = ['KB', 'MB', 'GB'];
-    let size = bytes / 1024;
-    let unitIndex = 0;
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex += 1;
-    }
-
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
   }
 
   /**
@@ -169,9 +150,18 @@ export class FilesService {
    */
   private async resolveFileType(file: Express.Multer.File): Promise<ResolvedFileType> {
     const declared = file.mimetype;
+
+    // 声明类型命中拒绝名单时直接失败（Multer 层已拦过一次，这里做二次防御）
+    if (isBlockedUploadMime(declared)) {
+      throw BusinessException.badRequest(`出于安全原因不允许上传该类型: ${declared}`);
+    }
+
     const detected = await fileTypeFromFile(file.path);
 
     if (detected) {
+      if (isBlockedUploadMime(detected.mime)) {
+        throw BusinessException.badRequest(`出于安全原因不允许上传该类型: ${detected.mime}`);
+      }
       if (detected.mime !== declared) {
         throw BusinessException.badRequest(
           `文件内容与声明类型不符: 声明 ${declared}, 实际 ${detected.mime}`,
@@ -181,8 +171,16 @@ export class FilesService {
     }
 
     // mime-types 查不到对应扩展名时返回 false，兜底为通用二进制扩展名
-    const ext = mimeExtension(declared);
-    return { ext: typeof ext === 'string' ? ext : 'bin', mime: declared };
+    const extension = mimeExtension(declared);
+    const ext = typeof extension === 'string' ? extension : 'bin';
+
+    // 无 magic number 的文本类型（HTML/SVG/JS/XML）扩展名由声明 MIME 反查得到，
+    // 这里拦死，避免静态服务按扩展名把文件渲染成可执行文档
+    if (isBlockedUploadExtension(ext)) {
+      throw BusinessException.badRequest(`出于安全原因不允许上传该扩展名: ${ext}`);
+    }
+
+    return { ext, mime: declared };
   }
 
   /**

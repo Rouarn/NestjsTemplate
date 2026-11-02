@@ -2,120 +2,106 @@ import { registerAs } from '@nestjs/config';
 import type { AppConfig, Environment } from './types.js';
 
 /**
- * 应用配置工厂函数
+ * 应用配置工厂
  *
- * 从环境变量中读取配置值，并提供合理的默认值。
- * 使用类型定义确保配置结构的一致性和类型安全。
+ * 单一事实源约定：
+ * - 默认值、必填项与取值范围**只**在 `validation.schema.ts`（Joi）中声明，
+ *   校验后的值会由 `@nestjs/config` 写回 `process.env`；
+ * - 本文件只做「读取 + 类型转换」，不提供任何默认值，
+ *   从而避免出现两处默认值互相覆盖（历史上 `NEST_DATABASE_TABLE_PREFIX`
+ *   就曾出现 Joi 的 `ra_` 静默覆盖配置工厂 `''` 的问题）。
+ *
+ * 因此：新增配置项时，必须同时更新 Joi schema 与 `.env.example`。
  */
 export default registerAs('app', (): AppConfig => {
-  // 环境变量辅助函数
-  const getEnvVar = <T>(key: string, defaultValue: T): T => {
-    const value = process.env[key];
-    if (value === undefined) return defaultValue;
+  /** 读取字符串（存在性由 Joi 保证） */
+  const str = (key: string): string => process.env[key] as string;
 
-    // 处理数字类型
-    if (typeof defaultValue === 'number') {
-      const parsed = parseInt(value, 10);
-      return isNaN(parsed) ? defaultValue : (parsed as unknown as T);
-    }
+  /** 读取数字（Joi 已保证是合法数字） */
+  const num = (key: string): number => Number(process.env[key]);
 
-    // 处理布尔类型
-    if (typeof defaultValue === 'boolean') {
-      return (value === 'true') as unknown as T;
-    }
+  /** 读取布尔（Joi 已保证是 'true' / 'false'） */
+  const bool = (key: string): boolean => process.env[key] === 'true';
 
-    // 处理字符串数组类型
-    if (Array.isArray(defaultValue)) {
-      return value.split(',').map((item) => item.trim()) as unknown as T;
-    }
-
-    return value as unknown as T;
-  };
-
-  // 获取环境变量
-  const environment = getEnvVar<Environment>('NODE_ENV', 'development');
+  /** 读取逗号分隔列表，自动去空白与空项 */
+  const list = (key: string): string[] =>
+    (process.env[key] ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   return {
-    // 应用基础配置
-    title: getEnvVar('NEST_APP_TITLE', 'NestJS Template'),
-    port: getEnvVar('NEST_PORT', 3000),
-    baseUrl: getEnvVar('NEST_BASE_URL', 'http://localhost:3000'),
-    environment,
+    title: str('NEST_APP_TITLE'),
+    port: num('NEST_PORT'),
+    baseUrl: str('NEST_BASE_URL'),
+    environment: str('NODE_ENV') as Environment,
 
-    // API 版本控制配置
+    server: {
+      trustProxy: num('NEST_TRUST_PROXY'),
+    },
+
     api: {
-      prefix: getEnvVar('NEST_API_PREFIX', 'api'),
-      version: getEnvVar('NEST_API_DEFAULT_VERSION', '1'),
-      type: getEnvVar('NEST_API_VERSIONING_TYPE', 'header'),
-      header: getEnvVar('NEST_API_VERSIONING_HEADER', 'X-Api-Version'),
+      prefix: str('NEST_API_PREFIX'),
+      version: str('NEST_API_DEFAULT_VERSION'),
+      type: str('NEST_API_VERSIONING_TYPE') as 'uri' | 'header',
+      header: str('NEST_API_VERSIONING_HEADER'),
     },
 
-    // JWT 认证配置
     jwt: {
-      secret: getEnvVar('NEST_JWT_SECRET', 'your-secret-key'),
-      accessTokenTtl: getEnvVar('NEST_JWT_ACCESS_TOKEN_TTL', 3600),
-      refreshTokenTtl: getEnvVar('NEST_JWT_REFRESH_TOKEN_TTL', 604800),
+      secret: str('NEST_JWT_SECRET'),
+      refreshSecret: str('NEST_JWT_REFRESH_SECRET'),
+      accessTokenTtl: num('NEST_JWT_ACCESS_TOKEN_TTL'),
+      refreshTokenTtl: num('NEST_JWT_REFRESH_TOKEN_TTL'),
     },
 
-    // Bcrypt 加密配置
     bcrypt: {
-      saltRounds: getEnvVar('NEST_BCRYPT_SALT_ROUNDS', 10),
+      saltRounds: num('NEST_BCRYPT_SALT_ROUNDS'),
     },
 
-    // 认证安全配置
     auth: {
-      maxLoginAttempts: getEnvVar('NEST_AUTH_MAX_LOGIN_ATTEMPTS', 5),
-      baseLockDuration: getEnvVar('NEST_AUTH_BASE_LOCK_DURATION', 1800),
-      maxLockDuration: getEnvVar('NEST_AUTH_MAX_LOCK_DURATION', 86400),
+      maxLoginAttempts: num('NEST_AUTH_MAX_LOGIN_ATTEMPTS'),
+      baseLockDuration: num('NEST_AUTH_BASE_LOCK_DURATION'),
+      maxLockDuration: num('NEST_AUTH_MAX_LOCK_DURATION'),
+      tokenVersionCacheTtl: num('NEST_AUTH_TOKEN_CACHE_TTL'),
     },
 
-    // 静态资源和文件上传配置
     static: {
-      root: getEnvVar('NEST_STATIC_ASSETS_DIR', './static'),
-      prefix: getEnvVar('NEST_STATIC_ASSETS_PREFIX', '/static'),
-      uploadsAllowedTypes: getEnvVar('NEST_UPLOAD_ALLOWED_TYPES', ''),
-      uploadsMaxSize: getEnvVar('NEST_UPLOAD_MAX_SIZE', 10 * 1024 * 1024), // 10MB
-      uploadsMaxFiles: getEnvVar('NEST_UPLOAD_MAX_FILES', 10), // 最多同时上传10个文件
+      root: str('NEST_STATIC_ASSETS_DIR'),
+      prefix: str('NEST_STATIC_ASSETS_PREFIX'),
+      uploadsAllowedTypes: str('NEST_UPLOAD_ALLOWED_TYPES'),
+      uploadsMaxSize: num('NEST_UPLOAD_MAX_SIZE'),
+      uploadsMaxFiles: num('NEST_UPLOAD_MAX_FILES'),
     },
 
-    // CORS 跨域配置
     cors: {
-      origin: getEnvVar('NEST_CORS_ORIGINS', []),
+      origin: list('NEST_CORS_ORIGINS'),
     },
 
-    // Swagger API 文档配置
     swagger: {
-      title: getEnvVar('NEST_SWAGGER_TITLE', 'API Documentation'),
-      description: getEnvVar('NEST_SWAGGER_DESCRIPTION', 'API文档'),
-      prefix: getEnvVar('NEST_SWAGGER_PREFIX', '/api-docs'),
-      filename: getEnvVar('NEST_SWAGGER_FILENAME', 'api-docs.json'),
-      enabled: environment !== 'production',
+      title: str('NEST_SWAGGER_TITLE'),
+      description: str('NEST_SWAGGER_DESCRIPTION'),
+      prefix: str('NEST_SWAGGER_PREFIX'),
+      filename: str('NEST_SWAGGER_FILENAME'),
     },
 
-    // 数据库连接配置
     database: {
-      type: 'mysql',
-      host: getEnvVar('NEST_DATABASE_HOST', 'localhost'),
-      port: getEnvVar('NEST_DATABASE_PORT', 3306),
-      username: getEnvVar('NEST_DATABASE_USER', 'root'),
-      password: getEnvVar('NEST_DATABASE_PASSWORD', ''),
-      database: getEnvVar('NEST_DATABASE_NAME', 'nestjs_app'),
-      tablePrefix: getEnvVar('NEST_DATABASE_TABLE_PREFIX', ''),
-      timestamps: {
-        enabled: getEnvVar('NEST_DATABASE_ENABLE_TIMESTAMPS', true),
-        createdAt: getEnvVar('NEST_DATABASE_CREATED_AT', 'createdAt'),
-        updatedAt: getEnvVar('NEST_DATABASE_UPDATE_AT', 'updatedAt'),
-      },
-      synchronize: getEnvVar('NEST_DATABASE_SYNCHRONIZE', environment === 'development'),
-      logging: getEnvVar('NEST_DATABASE_LOGGING', false),
+      host: str('NEST_DATABASE_HOST'),
+      port: num('NEST_DATABASE_PORT'),
+      username: str('NEST_DATABASE_USER'),
+      password: str('NEST_DATABASE_PASSWORD'),
+      database: str('NEST_DATABASE_NAME'),
+      tablePrefix: str('NEST_DATABASE_TABLE_PREFIX'),
+      synchronize: bool('NEST_DATABASE_SYNCHRONIZE'),
+      logging: bool('NEST_DATABASE_LOGGING'),
+      poolSize: num('NEST_DATABASE_POOL_SIZE'),
     },
 
-    // 日志配置
     logger: {
-      level: getEnvVar('NEST_LOGGER_LEVEL', 'info'),
-      dir: getEnvVar('NEST_LOGGER_DIR', './logs'),
-      maxFiles: getEnvVar('NEST_LOGGER_MAX_FILES', '14d'),
-      maxSize: getEnvVar('NEST_LOGGER_MAX_SIZE', '20m'),
+      level: str('NEST_LOGGER_LEVEL'),
+      dir: str('NEST_LOGGER_DIR'),
+      maxFiles: str('NEST_LOGGER_MAX_FILES'),
+      maxSize: str('NEST_LOGGER_MAX_SIZE'),
+      logBody: bool('NEST_LOG_BODY'),
     },
   };
 });

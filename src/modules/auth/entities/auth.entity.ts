@@ -1,6 +1,6 @@
-import { Status } from '#/common/enums/index.js';
-import { BaseEntity } from '#/database/index.js';
-import { User } from '#/modules/users/entities/user.entity.js';
+import { Role, Status } from '../../../common/enums/index.js';
+import { BaseEntity } from '../../../database/index.js';
+import type { User } from '../../users/entities/user.entity.js';
 import { Exclude } from 'class-transformer';
 import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
@@ -22,6 +22,22 @@ export class Auth extends BaseEntity {
   @Exclude()
   @Column({ name: 'password', comment: '密码', select: false })
   password!: string;
+
+  /**
+   * 角色
+   *
+   * 默认 user；管理员由初始化脚本或后台流程显式提升。
+   * 角色随访问令牌下发，接口级授权见 `@Roles()` + `RolesGuard`。
+   * 变更角色后旧令牌在过期前仍保留旧角色（模板暂未实现令牌吊销）。
+   */
+  @Column({
+    name: 'role',
+    type: 'varchar',
+    length: 16,
+    default: Role.USER,
+    comment: '角色: admin-管理员, user-普通用户',
+  })
+  role!: Role;
 
   @Column({
     name: 'status',
@@ -46,6 +62,15 @@ export class Auth extends BaseEntity {
   @Column({ name: 'login_attempts', type: 'int', default: 0, comment: '登录失败次数' })
   loginAttempts!: number;
 
+  /**
+   * 令牌版本
+   *
+   * 签发令牌时写入 `ver` 声明；改密 / 禁用 / 改角色时 +1，
+   * 旧令牌在下一次校验（受 `NEST_AUTH_TOKEN_CACHE_TTL` 缓存影响）即失效。
+   */
+  @Column({ name: 'token_version', type: 'int', default: 0, comment: '令牌版本(用于吊销)' })
+  tokenVersion!: number;
+
   @Column({ name: 'locked_at', type: 'datetime', nullable: true, comment: '账户锁定时间' })
   lockedAt!: Date | null;
 
@@ -58,6 +83,10 @@ export class Auth extends BaseEntity {
   passwordChangedAt!: Date | null;
 
   // 一对一关联用户信息（反向侧，不持有外键；级联规则由 User 侧持有外键处声明）
-  @OneToOne(() => User, (user) => user.auth)
+  //
+  // 与 User 实体之间存在双向引用：这里同样使用「字符串目标 + type-only 导入」，
+  // 避免 emitDecoratorMetadata 在装饰器求值阶段生成对 User 的强引用，
+  // 从而消除两个实体模块之间的运行期循环依赖（深层单文件导入时不再 TDZ）。
+  @OneToOne('User', 'auth')
   user!: User;
 }

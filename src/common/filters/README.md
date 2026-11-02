@@ -30,5 +30,5 @@ app.useGlobalFilters(new AllExceptionsFilter());
 
 ## 错误响应格式
 
-- 统一 `code/message/data/success/timestamp/url/path`
+- 统一 `code/message/success/timestamp/url/data`（`code` 与 HTTP 状态行一致）
 - 未知异常固定返回 `code: 500`、`message: 服务器内部错误`，`data` 为空对象

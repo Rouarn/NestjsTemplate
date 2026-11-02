@@ -1,4 +1,4 @@
-import { DatabaseModule } from '#/database/index.js';
+import { DatabaseModule } from '../../database/index.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module.js';

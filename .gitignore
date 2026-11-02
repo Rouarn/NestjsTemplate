@@ -5,8 +5,8 @@
 /deploy
 /build
 /node_modules
-# PNPM 锁文件 (模板项目不提交，便于使用者获取最新依赖)
-pnpm-lock.yaml
+# 运行时生成：上传文件与 Swagger JSON
+/static
 
 # ================================
 # 日志文件
@@ -39,14 +39,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # ================================
 # 环境变量与配置
 # ================================
-# 本地环境变量
-.env.local
-.env.*.local
-
-# 测试环境配置 (含敏感信息，不提交)
-.env.test
-
-# 允许提交: .env / .env.development / .env.production / .env.example
+# 真实环境文件一律忽略，只保留 .env.example
+.env
+.env.*
+!.env.example
 
 # ================================
 # 编辑器与系统文件

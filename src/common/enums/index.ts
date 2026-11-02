@@ -5,4 +5,5 @@
 
 // 导出枚举类型
 export * from './gender.enum.js';
+export * from './role.enum.js';
 export * from './status.enum.js';

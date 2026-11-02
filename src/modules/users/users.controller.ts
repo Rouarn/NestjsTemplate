@@ -1,3 +1,8 @@
+import { GetCurrentUser, Roles } from '../../common/decorators/index.js';
+import { Role } from '../../common/enums/index.js';
+import { BusinessException } from '../../common/exceptions/index.js';
+import { SelfOrAdminGuard } from '../../common/guards/index.js';
+import type { CurrentUser, PaginatedData } from '../../common/interfaces/index.js';
 import {
   Body,
   ClassSerializerInterceptor,
@@ -6,9 +11,11 @@ import {
   Get,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
@@ -34,7 +41,9 @@ import { UsersService } from './users.service.js';
  * 提供用户管理的REST API接口，专注于用户资料的CRUD操作。
  * 与认证功能分离，职责单一明确。
  *
- * 精简说明：移除了细粒度权限装饰器，接口受全局 JWT 认证守卫保护（登录即可访问）。
+ * 权限约定（全局 JwtAuthGuard + RolesGuard 生效）：
+ * - 列表、状态切换、删除、批量删除：仅管理员（`@Roles(Role.ADMIN)`）
+ * - 详情、更新：管理员可操作任意用户，普通用户仅限本人（`SelfOrAdminGuard`）
  */
 @ApiTags('用户管理')
 @UseInterceptors(ClassSerializerInterceptor)
@@ -48,7 +57,8 @@ export class UsersController {
    * 支持分页、筛选和搜索
    */
   @Get()
-  @ApiOperation({ summary: '获取用户列表', description: '分页获取用户列表，支持筛选' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '获取用户列表', description: '分页获取用户列表，支持筛选（仅管理员）' })
   @ApiQuery({ name: 'current', required: false, description: '当前页码', example: 1 })
   @ApiQuery({ name: 'size', required: false, description: '每页数量', example: 10 })
   @ApiQuery({ name: 'nickname', required: false, description: '昵称模糊搜索' })
@@ -59,12 +69,12 @@ export class UsersController {
     description: '获取用户列表成功',
     type: UserListResponseDto,
   })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: '无权限（非管理员）' })
   /**
-   * 返回类型为 service 中间形态 { list, total }，
-   * 全局 ResponseInterceptor 会将其转换为 UserListResponseDto（records/total/totalPages/current/size）后响应；
-   * swagger 文档以 @ApiResponse 的 type: UserListResponseDto 为准
+   * Service 直接返回标准分页结构（records/total/totalPages/current/size），
+   * 全局 ResponseInterceptor 只负责套上响应信封，不再做任何分页推断。
    */
-  async findAll(@Query() queryDto: QueryUserDto): Promise<{ list: User[]; total: number }> {
+  async findAll(@Query() queryDto: QueryUserDto): Promise<PaginatedData<User>> {
     return await this.usersService.findAll(queryDto);
   }
 
@@ -72,7 +82,11 @@ export class UsersController {
    * 根据ID获取用户详情
    */
   @Get(':id')
-  @ApiOperation({ summary: '获取用户详情', description: '根据用户ID获取详细信息' })
+  @UseGuards(SelfOrAdminGuard)
+  @ApiOperation({
+    summary: '获取用户详情',
+    description: '管理员可查询任意用户，普通用户仅可查询本人',
+  })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -83,7 +97,7 @@ export class UsersController {
     status: HttpStatus.NOT_FOUND,
     description: '用户不存在',
   })
-  async findOne(@Param('id') id: string): Promise<User> {
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
     return await this.usersService.findById(id);
   }
 
@@ -92,8 +106,12 @@ export class UsersController {
    * 管理员可更新任意用户，普通用户只能更新自己的信息
    */
   @Patch(':id')
-  @ApiOperation({ summary: '更新用户信息', description: '更新用户资料信息' })
-  @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123', type: UpdateUserDto })
+  @UseGuards(SelfOrAdminGuard)
+  @ApiOperation({
+    summary: '更新用户信息',
+    description: '管理员可更新任意用户，普通用户仅可更新本人',
+  })
+  @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiBody({ type: UpdateUserDto })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -108,7 +126,10 @@ export class UsersController {
     status: HttpStatus.CONFLICT,
     description: '邮箱已被使用',
   })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<User> {
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<User> {
     return await this.usersService.update(id, updateUserDto);
   }
 
@@ -117,7 +138,8 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Patch(':id/status')
-  @ApiOperation({ summary: '切换用户状态', description: '切换用户启用/禁用状态' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '切换用户状态', description: '切换用户启用/禁用状态（仅管理员）' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -129,7 +151,7 @@ export class UsersController {
     description: '用户不存在',
   })
   async toggleStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() toggleDto: ToggleUserStatusDto,
   ): Promise<User> {
     return await this.usersService.toggleUserStatus(id, toggleDto.status);
@@ -140,7 +162,8 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Delete(':id')
-  @ApiOperation({ summary: '删除用户', description: '删除指定用户' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '删除用户', description: '删除指定用户（仅管理员，且不能删除自己）' })
   @ApiParam({ name: 'id', description: '用户ID', example: 'uuid-123' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -150,7 +173,14 @@ export class UsersController {
     status: HttpStatus.NOT_FOUND,
     description: '用户不存在',
   })
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @GetCurrentUser() currentUser: CurrentUser,
+  ): Promise<{ message: string }> {
+    // 防止管理员误删自己：账号删除会级联清理认证记录，无法自行恢复
+    if (currentUser?.userId === id) {
+      throw BusinessException.badRequest('不能删除当前登录账号');
+    }
     return await this.usersService.remove(id);
   }
 
@@ -159,7 +189,8 @@ export class UsersController {
    * 仅管理员可操作
    */
   @Post('batch-delete')
-  @ApiOperation({ summary: '批量删除用户', description: '批量删除多个用户' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '批量删除用户', description: '批量删除多个用户（仅管理员）' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: '批量删除成功',
@@ -168,7 +199,9 @@ export class UsersController {
     status: HttpStatus.NOT_FOUND,
     description: '未找到要删除的用户',
   })
-  async batchRemove(@Body() batchDeleteDto: BatchDeleteUserDto): Promise<{ message: string }> {
+  async batchRemove(
+    @Body() batchDeleteDto: BatchDeleteUserDto,
+  ): Promise<{ deleted: string[]; missing: string[] }> {
     return await this.usersService.batchRemove(batchDeleteDto);
   }
 }

@@ -1,11 +1,11 @@
-import { CAPTCHA_CONSTANTS, JWT_CONSTANTS } from '#/common/constants/index.js';
-import { isEnabled } from '#/common/enums/index.js';
-import { BusinessException } from '#/common/exceptions/index.js';
-import { CurrentUser } from '#/common/interfaces/index.js';
-import { AppConfigService } from '#/config/index.js';
-import { DatabaseService } from '#/database/index.js';
-import { getCurrentTimestamp } from '#/utils/index.js';
-import { Injectable } from '@nestjs/common';
+import { CAPTCHA_CONSTANTS, JWT_CONSTANTS, TOKEN_TYPES } from '../../common/constants/index.js';
+import { isEnabled } from '../../common/enums/index.js';
+import { BusinessException } from '../../common/exceptions/index.js';
+import { CurrentUser } from '../../common/interfaces/index.js';
+import { AppConfigService } from '../../config/index.js';
+import { DatabaseService } from '../../database/index.js';
+import { TokenVersionService } from '../../shared/auth-token/index.js';
+import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -26,6 +26,22 @@ import type { RefreshTokenDto, TokenResponseDto } from './dto/token.dto.js';
 import { Auth } from './entities/auth.entity.js';
 
 /**
+ * 账号不存在时用于比对的占位 bcrypt 哈希（cost 10）
+ *
+ * 目的：账号存在与否都执行一次同等成本的 `bcrypt.compare`，
+ * 避免通过响应耗时区分「用户不存在」与「密码错误」。
+ */
+const DUMMY_PASSWORD_HASH = '$2b$10$cE2IqQctIfeCO/EnG3lpb.pc.7cjYrWQH2GRRPRC3WvjUCIv1JehS';
+
+/**
+ * 登录失败统一文案
+ *
+ * 用户不存在、密码错误、账号被锁定/禁用一律返回同一句提示，
+ * 防止通过差异化文案枚举用户名与账号状态。
+ */
+const LOGIN_FAILED_MESSAGE = '用户名或密码错误';
+
+/**
  * 认证服务（AuthService）
  * 专注于用户认证相关的核心业务逻辑，与用户管理功能完全分离。
  *
@@ -36,6 +52,11 @@ import { Auth } from './entities/auth.entity.js';
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  /** 由 JWT 主密钥派生的验证码专用子密钥，避免不同用途共用同一把密钥 */
+  private readonly captchaKey: Buffer;
+
   constructor(
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
@@ -43,7 +64,13 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly appConfig: AppConfigService,
-  ) {}
+    private readonly tokenVersionService: TokenVersionService,
+  ) {
+    this.captchaKey = crypto
+      .createHmac('sha256', appConfig.jwtOptions.secret)
+      .update('captcha-purpose')
+      .digest();
+  }
 
   /**
    * 生成验证码
@@ -102,13 +129,14 @@ export class AuthService {
    * @returns 签名后的验证码令牌
    */
   private createCaptchaToken(code: string): string {
-    const answerHash = crypto.createHash('md5').update(code.toLowerCase()).digest('hex');
+    // 载荷只放 nonce / 过期时间 / 答案的 HMAC 证明，绝不下发答案的任何可离线校验形式
+    const nonce = crypto.randomBytes(16).toString('base64url');
     const expiresAt = Date.now() + CAPTCHA_CONSTANTS.TTL_SECONDS * 1000;
-    const payload = `${answerHash}.${expiresAt}`;
+    const proof = this.proofOfAnswer(nonce, code);
+    const payload = `${nonce}.${expiresAt}.${proof}`;
     const encodedPayload = Buffer.from(payload, 'utf8').toString('base64url');
-    const signature = this.signCaptchaPayload(encodedPayload);
 
-    return `${encodedPayload}.${signature}`;
+    return `${encodedPayload}.${this.signCaptchaPayload(encodedPayload)}`;
   }
 
   /**
@@ -131,22 +159,20 @@ export class AuthService {
     const signature = token.slice(separatorIndex + 1);
 
     // 恒定时间比较签名，防止时序攻击
-    const expectedSignature = this.signCaptchaPayload(encodedPayload);
-    const actualBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-    if (
-      actualBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(actualBuffer, expectedBuffer)
-    ) {
+    if (!this.safeEqual(signature, this.signCaptchaPayload(encodedPayload))) {
       throw BusinessException.badRequest('验证码令牌无效');
     }
 
     const payload = Buffer.from(encodedPayload, 'base64url').toString('utf8');
-    const separatorInPayload = payload.lastIndexOf('.');
-    const answerHash = payload.slice(0, separatorInPayload);
-    const expiresAt = Number(payload.slice(separatorInPayload + 1));
+    const parts = payload.split('.');
+    if (parts.length !== 3) {
+      throw BusinessException.badRequest('验证码令牌无效');
+    }
 
-    if (!answerHash || !Number.isFinite(expiresAt)) {
+    const [nonce, expiresAtRaw, proof] = parts;
+    const expiresAt = Number(expiresAtRaw);
+
+    if (!nonce || !proof || !Number.isFinite(expiresAt)) {
       throw BusinessException.badRequest('验证码令牌无效');
     }
 
@@ -154,13 +180,35 @@ export class AuthService {
       throw BusinessException.badRequest('验证码已过期，请重新获取');
     }
 
-    const inputHash = crypto.createHash('md5').update(code.toLowerCase()).digest('hex');
-    if (
-      inputHash.length !== answerHash.length ||
-      !crypto.timingSafeEqual(Buffer.from(inputHash), Buffer.from(answerHash))
-    ) {
+    // 答案只以 HMAC 形式参与比对：客户端持有令牌也无法离线穷举候选答案
+    if (!this.safeEqual(proof, this.proofOfAnswer(nonce, code))) {
       throw BusinessException.badRequest('验证码错误');
     }
+  }
+
+  /**
+   * 计算「答案 + nonce」的 HMAC 证明
+   *
+   * @param nonce 令牌随机数（防止同一答案在不同令牌间复用证明）
+   * @param code 用户提交的验证码
+   * @returns base64url 编码的证明
+   */
+  private proofOfAnswer(nonce: string, code: string): string {
+    return crypto
+      .createHmac('sha256', this.captchaKey)
+      .update(`${nonce}.${code.toLowerCase()}`)
+      .digest('base64url');
+  }
+
+  /**
+   * 恒定时间字符串比较，避免通过比较耗时推断内容
+   */
+  private safeEqual(left: string, right: string): boolean {
+    const leftBuffer = Buffer.from(left);
+    const rightBuffer = Buffer.from(right);
+    return (
+      leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer)
+    );
   }
 
   /**
@@ -170,10 +218,7 @@ export class AuthService {
    * @returns base64url 编码的签名
    */
   private signCaptchaPayload(encodedPayload: string): string {
-    return crypto
-      .createHmac('sha256', this.appConfig.jwtOptions.secret)
-      .update(encodedPayload)
-      .digest('base64url');
+    return crypto.createHmac('sha256', this.captchaKey).update(encodedPayload).digest('base64url');
   }
 
   /**
@@ -203,7 +248,7 @@ export class AuthService {
       // 创建认证记录
       const auth = manager.create(Auth, {
         username: registerDto.username,
-        password: this.hashPassword(registerDto.password),
+        password: await this.hashPassword(registerDto.password),
         passwordChangedAt: new Date(),
         loginAttempts: 0,
       });
@@ -244,8 +289,7 @@ export class AuthService {
    * @param loginDto 包含用户名、密码等登录数据
    * @param clientIp 客户端IP
    * @returns 成功时返回完整的登录响应信息
-   * @throws UnauthorizedException 认证失败
-   * @throws BadRequestException 账号被锁定或其他业务错误
+   * @throws BusinessException 401 凭据错误 / 账号锁定 / 账号禁用（对外文案统一）
    */
   async login(loginDto: LoginDto, clientIp?: string): Promise<TokenResponseDto> {
     // 先校验验证码，通过后再查询账号，避免未授权请求打到数据库
@@ -259,16 +303,18 @@ export class AuthService {
       .where('auth.username = :username', { username: loginDto.username })
       .getOne();
 
+    // 账号不存在时也执行一次 bcrypt 比较，避免响应耗时泄露账号是否存在
+    const isPasswordValid = await this.validatePassword(
+      loginDto.password,
+      auth?.password ?? DUMMY_PASSWORD_HASH,
+    );
+
     if (!auth) {
-      // 记录登录失败尝试（可选：防止用户名枚举攻击）
-      throw BusinessException.notFound('用户不存在', { username: loginDto.username });
+      throw BusinessException.unauthorized(LOGIN_FAILED_MESSAGE);
     }
 
-    // 检查账号是否被锁定
-    this.checkAccountStatus(auth);
-
-    // 验证密码
-    const isPasswordValid = await this.validatePassword(loginDto.password, auth.password);
+    // 锁定 / 禁用：对外与「凭据错误」保持同一文案，细节只进日志
+    this.assertLoginAllowed(auth);
 
     if (!isPasswordValid) {
       // 增加登录失败次数
@@ -282,22 +328,16 @@ export class AuthService {
       if (currentAttempts >= maxLoginAttempts) {
         await this.lockAccount(auth.id);
         const duration = this.calculateLockDuration(currentAttempts);
-
-        throw BusinessException.tooManyRequests(
-          `账号已被锁定，请 ${Math.ceil(duration / 60000)} 分钟后再试`,
+        this.logger.warn(
+          `账号因连续登录失败被锁定 ${Math.ceil(duration / 60000)} 分钟: ${auth.username}`,
         );
       }
 
-      throw BusinessException.badRequest('登录密码错误', {
-        username: loginDto.username,
-      });
+      throw BusinessException.unauthorized(LOGIN_FAILED_MESSAGE);
     }
 
-    // 登录成功，重置登录失败次数和锁定状态
-    await this.unlockAccount(auth.id);
-
-    // 更新最后登录时间
-    await this.updateLastLogin(auth.id, clientIp);
+    // 登录成功：重置失败计数、解锁并记录最后登录信息（单条 UPDATE）
+    await this.recordSuccessfulLogin(auth.id, clientIp);
 
     // 生成JWT令牌（issueTokenResponse 内部会校验关联用户是否存在）
     return this.issueTokenResponse(auth);
@@ -315,19 +355,19 @@ export class AuthService {
     const { refreshToken } = refreshTokenDto;
 
     // 验证刷新令牌（自校验 JWT）
-    const authId = await this.validateRefreshToken(refreshToken);
-    if (!authId) {
+    const payload = await this.validateRefreshToken(refreshToken);
+    if (!payload) {
       throw BusinessException.unauthorized('刷新令牌无效或已过期');
     }
 
-    // 获取认证信息
     const auth = await this.authRepository.findOne({
-      where: { id: authId },
+      where: { id: payload.authId },
       relations: { user: true },
     });
 
-    if (!auth) {
-      throw BusinessException.notFound('认证记录不存在', { authId });
+    // 记录已删除，或令牌版本已被吊销（改密 / 禁用 / 改角色）
+    if (auth?.tokenVersion !== payload.tokenVersion) {
+      throw BusinessException.unauthorized('登录状态已失效，请重新登录');
     }
 
     // 检查账号状态
@@ -366,6 +406,26 @@ export class AuthService {
   }
 
   /**
+   * 登录场景的账号可用性校验
+   *
+   * 与 {@link checkAccountStatus} 的区别：这里把「锁定 / 禁用」统一折叠为
+   * 「凭据错误」，避免登录接口成为账号状态探测器；具体原因只写服务端日志。
+   *
+   * @param auth 认证实体
+   */
+  private assertLoginAllowed(auth: Auth): void {
+    if (this.isAccountLocked(auth)) {
+      this.logger.warn(`登录被拒：账号处于锁定期 (${auth.username})`);
+      throw BusinessException.unauthorized(LOGIN_FAILED_MESSAGE);
+    }
+
+    if (!isEnabled(auth.status)) {
+      this.logger.warn(`登录被拒：账号已禁用 (${auth.username})`);
+      throw BusinessException.unauthorized(LOGIN_FAILED_MESSAGE);
+    }
+  }
+
+  /**
    * 生成令牌响应（Access + Refresh，均为自校验 JWT）
    * @param auth 认证实体
    * @returns 令牌响应
@@ -376,13 +436,23 @@ export class AuthService {
     }
 
     const payload = {
+      sub: auth.id,
       authId: auth.id,
       userId: auth.user.id,
       username: auth.username,
+      role: auth.role,
+      // 令牌版本：改密 / 禁用 / 改角色后旧令牌失效
+      ver: auth.tokenVersion,
+      // 令牌用途声明：JwtAuthGuard 只接受 access，避免刷新令牌被当作访问令牌使用
+      typ: TOKEN_TYPES.ACCESS,
     };
 
-    const accessToken = this.jwtService.sign(payload);
-    const refreshToken = await this.generateRefreshToken(auth.id);
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: this.appConfig.jwtOptions.secret,
+      expiresIn: this.appConfig.jwtOptions.accessTokenTtl,
+      algorithm: 'HS256',
+    });
+    const refreshToken = await this.generateRefreshToken(auth.id, auth.tokenVersion);
 
     return {
       accessToken,
@@ -455,11 +525,14 @@ export class AuthService {
 
     // 更新密码（bcrypt 哈希自带盐值）
     await this.authRepository.update(authId, {
-      password: this.hashPassword(changePasswordDto.newPassword),
+      password: await this.hashPassword(changePasswordDto.newPassword),
       passwordChangedAt: new Date(),
     });
 
-    return { message: '密码修改成功' };
+    // 递增令牌版本：其他设备上的旧令牌立即失效（含当前会话，需用新密码重新登录）
+    await this.tokenVersionService.bump(authId);
+
+    return { message: '密码修改成功，请使用新密码重新登录' };
   }
 
   /**
@@ -495,8 +568,9 @@ export class AuthService {
    * @param password 原始密码
    * @returns bcrypt 哈希密码
    */
-  private hashPassword(password: string): string {
-    return bcrypt.hashSync(password, this.appConfig.bcryptSaltRounds);
+  private async hashPassword(password: string): Promise<string> {
+    // 必须用异步版本：bcryptjs 为纯 JS 实现，hashSync 会阻塞事件循环数十到上百毫秒
+    return await bcrypt.hash(password, this.appConfig.bcryptSaltRounds);
   }
 
   /**
@@ -547,11 +621,19 @@ export class AuthService {
    * @param authId 认证ID
    * @returns 刷新令牌字符串
    */
-  private async generateRefreshToken(authId: string): Promise<string> {
+  private async generateRefreshToken(authId: string, tokenVersion: number): Promise<string> {
     return this.jwtService.signAsync(
-      { authId, timestamp: getCurrentTimestamp() },
       {
-        secret: this.appConfig.jwtOptions.secret,
+        sub: authId,
+        authId,
+        ver: tokenVersion,
+        typ: TOKEN_TYPES.REFRESH,
+        // 预留 jti，便于后续接入黑名单/轮换时按单枚令牌失效
+        jti: crypto.randomUUID(),
+      },
+      {
+        // 刷新令牌使用独立密钥（未配置时回退主密钥），即便泄露也不等同于访问令牌密钥
+        secret: this.appConfig.jwtOptions.refreshSecret,
         expiresIn: this.appConfig.jwtOptions.refreshTokenTtl,
         algorithm: 'HS256',
       },
@@ -566,13 +648,30 @@ export class AuthService {
    * @param refreshToken 刷新令牌
    * @returns 认证ID或null
    */
-  private async validateRefreshToken(refreshToken: string): Promise<string | null> {
+  private async validateRefreshToken(
+    refreshToken: string,
+  ): Promise<{ authId: string; tokenVersion: number } | null> {
     try {
-      const payload = await this.jwtService.verifyAsync<{ authId: string }>(refreshToken, {
-        secret: this.appConfig.jwtOptions.secret,
+      const payload = await this.jwtService.verifyAsync<{
+        authId?: string;
+        ver?: number;
+        typ?: string;
+      }>(refreshToken, {
+        secret: this.appConfig.jwtOptions.refreshSecret,
         algorithms: ['HS256'],
       });
-      return payload.authId ?? null;
+
+      // 只接受刷新令牌：访问令牌不能用来换取新令牌，否则 1 小时的访问令牌
+      // 可以无限续期出新的 7 天刷新令牌，会话将永不失效
+      if (payload.typ !== TOKEN_TYPES.REFRESH) {
+        return null;
+      }
+
+      if (!payload.authId || typeof payload.ver !== 'number') {
+        return null;
+      }
+
+      return { authId: payload.authId, tokenVersion: payload.ver };
     } catch {
       return null;
     }
@@ -599,31 +698,20 @@ export class AuthService {
   }
 
   /**
-   * 解锁账号
+   * 记录一次成功登录
+   *
+   * 重置失败计数、清除锁定、更新最后登录时间与 IP，合并为单条 UPDATE。
+   * 注意：`lockedAt` 传 undefined 会被 TypeORM 忽略导致残留，必须用原始片段写 NULL。
    *
    * @param authId 认证ID
+   * @param clientIp 客户端 IP
    */
-  private async unlockAccount(authId: string): Promise<void> {
-    // 传 undefined 会被 TypeORM 忽略导致 lockedAt 残留，这里用原始片段写入 NULL
+  private async recordSuccessfulLogin(authId: string, clientIp?: string): Promise<void> {
     await this.authRepository.update(authId, {
       loginAttempts: 0,
       lockedAt: () => 'NULL',
-    });
-  }
-
-  /**
-   * 更新最后登录时间
-   *
-   * @param authId 认证ID
-   * @param clientIp
-   */
-  private async updateLastLogin(authId: string, clientIp?: string): Promise<void> {
-    const updateData: Partial<Auth> = {
       lastLoginAt: new Date(),
-    };
-    if (clientIp) {
-      updateData.lastLoginIp = clientIp;
-    }
-    await this.authRepository.update(authId, updateData);
+      ...(clientIp ? { lastLoginIp: clientIp } : {}),
+    });
   }
 }

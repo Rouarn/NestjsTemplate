@@ -1,4 +1,4 @@
-import { AppConfigService, ConfigModule } from '#/config/index.js';
+import { AppConfigService, ConfigModule } from '../../config/index.js';
 import { Global, Module } from '@nestjs/common';
 import { WinstonModule } from 'nest-winston';
 import { createWinstonConfig } from './winston.config.js';

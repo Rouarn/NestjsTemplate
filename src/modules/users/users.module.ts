@@ -1,5 +1,5 @@
-import { DatabaseModule } from '#/database/index.js';
-import { Auth } from '#/modules/auth/entities/auth.entity.js';
+import { DatabaseModule } from '../../database/index.js';
+import { Auth } from '../auth/entities/auth.entity.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity.js';

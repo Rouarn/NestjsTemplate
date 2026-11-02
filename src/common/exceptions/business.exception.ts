@@ -13,8 +13,7 @@
  * ```
  * 未覆盖的状态码可直接 `new BusinessException(message, HttpStatus.XXX)` 兜底。
  */
-import type { ErrorResponse } from '#/common/interfaces/index.js';
-import { formatISOString } from '#/utils/index.js';
+import { formatISOString } from '../../utils/index.js';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
 /** 错误上下文类型：随响应体 `data` 字段返回，用于调试信息或补充提示 */
@@ -47,11 +46,12 @@ export class BusinessException extends HttpException {
     status: HttpStatus = HttpStatus.BAD_REQUEST,
     details?: BusinessExceptionDetails,
   ) {
-    const body: ErrorResponse = {
+    // 只构造异常载荷；响应信封（含 url）由 AllExceptionsFilter 统一生成
+    const body = {
       code: status,
       message,
       data: details ?? {},
-      success: false,
+      success: false as const,
       timestamp: formatISOString(),
     };
     super(body, status);
@@ -116,6 +116,18 @@ export class BusinessException extends HttpException {
     details?: BusinessExceptionDetails,
   ): BusinessException {
     return new BusinessException(message, HttpStatus.CONFLICT, details);
+  }
+
+  /**
+   * 服务不可用（依赖组件故障、维护中）
+   * @param message 完整错误文案，默认「服务暂不可用」
+   * @param details 额外上下文（可选）
+   */
+  static unavailable(
+    message: string | string[] = '服务暂不可用',
+    details?: BusinessExceptionDetails,
+  ): BusinessException {
+    return new BusinessException(message, HttpStatus.SERVICE_UNAVAILABLE, details);
   }
 
   /**

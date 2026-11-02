@@ -1,4 +1,5 @@
-import { Status } from '#/common/enums/index.js';
+import { DEFAULT_PAGINATION } from '../../../common/constants/index.js';
+import { Status } from '../../../common/enums/index.js';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
@@ -39,7 +40,7 @@ export class QueryUserDto {
   @Transform(toNumber)
   @IsInt({ message: '当前页码必须是整数' })
   @Min(1, { message: '当前页码不能小于1' })
-  current?: number = 1;
+  current?: number = DEFAULT_PAGINATION.MIN_PAGE;
 
   @ApiPropertyOptional({
     description: '每页数量',
@@ -52,8 +53,8 @@ export class QueryUserDto {
   @Transform(toNumber)
   @IsInt({ message: '每页数量必须是整数' })
   @Min(1, { message: '每页数量不能小于1' })
-  @Max(100, { message: '每页数量不能超过100' })
-  size?: number = 10;
+  @Max(DEFAULT_PAGINATION.MAX_PAGE_SIZE, { message: '每页数量不能超过100' })
+  size?: number = DEFAULT_PAGINATION.DEFAULT_PAGE_SIZE;
 
   @ApiPropertyOptional({
     description: '昵称模糊搜索',

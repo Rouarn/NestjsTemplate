@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { handleError, log, separator, showBanner, showSuccess } from '@vakao-ui/scripts-utils';
+import { handleError, log, separator, showBanner, showSuccess } from './utils/log.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -35,9 +35,12 @@ function genTemplates(resourceRaw) {
   const singular = toSingular(resource);
   const PascalPlural = toPascalCase(resource);
   const PascalSingular = toPascalCase(singular);
+  // 控制器里同时 import 了 @nestjs/common 的装饰器（Post/Query/Param…），
+  // 资源名恰好叫 posts 时实体会与装饰器重名，因此控制器内统一用 XxxEntity 别名
+  const PascalEntity = `${PascalSingular}Entity`;
 
   const entity = `import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { BaseEntity } from '#/database/index.js';
+import { BaseEntity } from '../../../database/index.js';
 
 @Entity('${resource}')
 export class ${PascalSingular} extends BaseEntity {
@@ -73,14 +76,18 @@ import { IsInt, IsOptional, Min } from 'class-validator';
 export class Query${PascalSingular}Dto {
   @ApiPropertyOptional({ description: '当前页码', example: 1, default: 1 })
   @IsOptional()
-  @Transform(({ value }: { value: unknown }) => parseInt(String(value), 10))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && value.trim() !== '' ? Number(value) : value,
+  )
   @IsInt()
   @Min(1)
   current?: number = 1;
 
   @ApiPropertyOptional({ description: '每页数量', example: 10, default: 10 })
   @IsOptional()
-  @Transform(({ value }: { value: unknown }) => parseInt(String(value), 10))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && value.trim() !== '' ? Number(value) : value,
+  )
   @IsInt()
   @Min(1)
   size?: number = 10;
@@ -107,7 +114,8 @@ export class Delete${PascalSingular}Dto {
   const service = `import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { BusinessException } from '#/common/exceptions/index.js';
+import { BusinessException } from '../../common/exceptions/index.js';
+import type { PaginatedData } from '../../common/interfaces/index.js';
 import type { Create${PascalSingular}Dto } from './dto/create-${singular}.dto.js';
 import type { Update${PascalSingular}Dto } from './dto/update-${singular}.dto.js';
 import type { Delete${PascalSingular}Dto } from './dto/delete-${singular}.dto.js';
@@ -126,13 +134,13 @@ export class ${PascalPlural}Service {
     return { message: '创建成功' };
   }
 
-  async findAll(current: number = 1, size: number = 10): Promise<{ list: ${PascalSingular}[]; total: number }> {
-    const [list, total] = await this.repo.findAndCount({
+  async findAll(current: number = 1, size: number = 10): Promise<PaginatedData<${PascalSingular}>> {
+    const [records, total] = await this.repo.findAndCount({
       skip: (current - 1) * size,
       take: size,
       order: { createdAt: 'DESC' },
     });
-    return { list, total };
+    return { records, total, totalPages: Math.ceil(total / size), current, size };
   }
 
   async findById(id: string): Promise<${PascalSingular}> {
@@ -169,10 +177,11 @@ export class ${PascalPlural}Service {
 }
 `;
 
-  const controller = `import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+  const controller = `import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { PaginatedData } from '../../common/interfaces/index.js';
 import { ${PascalPlural}Service } from './${resource}.service.js';
-import { ${PascalSingular} } from './entities/${singular}.entity.js';
+import { ${PascalSingular} as ${PascalEntity} } from './entities/${singular}.entity.js';
 import { Create${PascalSingular}Dto } from './dto/create-${singular}.dto.js';
 import { Update${PascalSingular}Dto } from './dto/update-${singular}.dto.js';
 import { Query${PascalSingular}Dto } from './dto/query-${singular}.dto.js';
@@ -196,7 +205,7 @@ export class ${PascalPlural}Controller {
   @ApiQuery({ name: 'current', required: false, description: '当前页码', example: 1 })
   @ApiQuery({ name: 'size', required: false, description: '每页数量', example: 10 })
   @ApiResponse({ status: 200, description: '分页列表' })
-  async findAll(@Query() query: Query${PascalSingular}Dto): Promise<{ list: ${PascalSingular}[]; total: number }> {
+  async findAll(@Query() query: Query${PascalSingular}Dto): Promise<PaginatedData<${PascalEntity}>> {
     const { current, size } = query;
     return await this.service.findAll(current, size);
   }
@@ -204,8 +213,8 @@ export class ${PascalPlural}Controller {
   @Get(':id')
   @ApiOperation({ summary: '查询单条' })
   @ApiParam({ name: 'id', description: '记录ID', type: String })
-  @ApiResponse({ status: 200, description: '记录详情', type: ${PascalSingular} })
-  async findOne(@Param('id') id: string): Promise<${PascalSingular}> {
+  @ApiResponse({ status: 200, description: '记录详情', type: ${PascalEntity} })
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<${PascalEntity}> {
     return await this.service.findById(id);
   }
 
@@ -213,7 +222,10 @@ export class ${PascalPlural}Controller {
   @ApiOperation({ summary: '修改单条' })
   @ApiParam({ name: 'id', description: '记录ID', type: String })
   @ApiResponse({ status: 200, description: '修改成功' })
-  async update(@Param('id') id: string, @Body() dto: Update${PascalSingular}Dto): Promise<void> {
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: Update${PascalSingular}Dto,
+  ): Promise<void> {
     return await this.service.update(id, dto);
   }
 

@@ -1,4 +1,6 @@
-import type { AppRequest } from '#/common/interfaces/index.js';
+import type { AppRequest } from '../interfaces/index.js';
+import { sanitizeForLog } from '../helpers/index.js';
+import { AppConfigService } from '../../config/index.js';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Response } from 'express';
@@ -8,80 +10,69 @@ import { tap } from 'rxjs/operators';
 import type { Logger } from 'winston';
 
 /**
- * 响应日志拦截器（LoggingInterceptor）
+ * 访问日志拦截器（成功出口）
  *
- * 独立于 ResponseInterceptor，仅负责记录「成功响应」的出口日志
- * （状态码、耗时、响应数据、用户信息）。
- * 异常响应（含 Guard/Pipe 阶段抛出、不经过拦截器的异常）由
- * AllExceptionsFilter 统一记录，避免重复或遗漏。
+ * 每个成功请求输出**一条**结构化日志（JSON 单行）：
+ * `requestId / method / path / status / durationMs / ip / userId`，
+ * 仅在 `NEST_LOG_BODY=true` 时附加脱敏后的请求体与响应体。
  *
- * 注册顺序说明：
- * - 需在 APP_INTERCEPTOR 中先于 ResponseInterceptor 注册，
- *   这样本拦截器包裹在外侧，可记录经过格式化后的最终响应数据。
+ * 失败请求由 `AllExceptionsFilter` 输出同构的一条日志，两者互补、不重复。
  */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  constructor(@Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger) {}
+  constructor(
+    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
+    private readonly appConfig: AppConfigService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
     const request = http.getRequest<AppRequest>();
     const response = http.getResponse<Response>();
+    const startedAt = request.startTime ?? Date.now();
 
     return next.handle().pipe(
       tap((data: unknown) => {
-        this.logResponse(request, response, data);
+        this.logger.info('http_request', {
+          ...this.baseFields(request, response, startedAt),
+          ...this.bodyFields(request, data),
+        });
       }),
     );
   }
 
-  /**
-   * 打印成功响应的出口日志
-   * @param request 请求对象
-   * @param response Express 响应对象（用于读取状态码）
-   * @param body 经过格式化后的响应数据
-   */
-  private logResponse(request: AppRequest, response: Response, body: unknown): void {
-    const startTime = request.startTime ?? Date.now();
-    const responseTime = Date.now() - startTime;
-
-    this.logger.info('');
-    this.logger.info('┌─ 📤 响应出口 ───────────────────────────────────────────────────┐');
-    this.logger.info(`│ 🆔 请求 ID: ${request.requestId ?? ''}`);
-    this.logger.info(`│ 🔗 请求路由: ${request.url}`);
-    this.logger.info(`│ 🚀 请求方法: ${request.method}`);
-    this.logger.info(`│ ✅ 状态码: ${response.statusCode}`);
-    this.logger.info(`│ ⏱️  响应耗时: ${responseTime}ms`);
-
-    const data = this.extractData(body);
-    const dataStr = JSON.stringify(data, null, 2);
-    const hasData = dataStr && dataStr !== '{}' && dataStr !== 'null';
-    this.logger.info(`│ 📦 响应数据: ${hasData ? '' : '无'}`);
-    if (hasData) {
-      dataStr.split('\n').forEach((line) => {
-        this.logger.info(`│    ${line}`);
-      });
-    }
-
-    if (request.user) {
-      this.logger.info('├─ 👤 用户信息 ───────────────────────────────────────────────────┤');
-      this.logger.info(`│ 🆔 用户 ID: ${request.user.userId}`);
-      this.logger.info(`│ 👤 用户名: ${request.user.username}`);
-    }
-
-    this.logger.info('└─────────────────────────────────────────────────────────────────┘');
-    this.logger.info('');
+  /** 请求元信息（不含业务数据） */
+  private baseFields(
+    request: AppRequest,
+    response: Response,
+    startedAt: number,
+  ): {
+    requestId: string;
+    method: string;
+    path: string;
+    status: number;
+    durationMs: number;
+    ip: string;
+    userId?: string;
+  } {
+    return {
+      requestId: request.requestId ?? '',
+      method: request.method,
+      path: request.originalUrl,
+      status: response.statusCode,
+      durationMs: Date.now() - startedAt,
+      ip: request.ip ?? '',
+      ...(request.user?.userId ? { userId: request.user.userId } : {}),
+    };
   }
 
-  /**
-   * 从响应对象中安全提取 data 字段
-   * @param response 任意响应对象
-   * @returns data 字段值或原始响应
-   */
-  private extractData(response: unknown): unknown {
-    if (response && typeof response === 'object' && 'data' in response) {
-      return (response as { data?: unknown }).data;
-    }
-    return response;
+  /** 请求/响应体（默认关闭，开启后仍会脱敏） */
+  private bodyFields(request: AppRequest, data: unknown): Record<string, unknown> {
+    if (!this.appConfig.loggerOptions.logBody) return {};
+
+    return {
+      requestBody: sanitizeForLog(request.body),
+      responseBody: sanitizeForLog(data),
+    };
   }
 }

@@ -24,18 +24,19 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AllExceptionsFilter } from './common/filters/index.js';
-import { JwtAuthGuard } from './common/guards/index.js';
+import { JwtAuthGuard, RolesGuard } from './common/guards/index.js';
 import { LoggingInterceptor, ResponseInterceptor } from './common/interceptors/index.js';
 import { LoggerMiddleware } from './common/middleware/logger.middleware.js';
 import { CustomValidationPipe } from './common/pipes/index.js';
 // 配置模块导入
 import { ConfigModule as AppConfigModule, AppConfigService } from './config/index.js';
 // 业务模块导入
-import { DatabaseModule } from '#/database/index.js';
-import { FilesModule } from '#/shared/files/files.module.js';
-import { LoggerModule } from '#/shared/logger/logger.module.js';
+import { DatabaseModule } from './database/index.js';
+import { FilesModule } from './shared/files/files.module.js';
+import { LoggerModule } from './shared/logger/logger.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { TokenVersionModule } from './shared/auth-token/index.js';
 
 /**
  * 应用根模块配置
@@ -74,6 +75,8 @@ import { UsersModule } from './modules/users/users.module.js';
     // 数据库模块 - TypeORM 配置 (统一在 DatabaseModule 中管理)
     // =============================================================================
     DatabaseModule,
+    // 令牌版本（吊销）能力：全局模块，供守卫与业务服务共用
+    TokenVersionModule,
 
     // =============================================================================
     // 限流模块 - 全局速率限制
@@ -115,6 +118,10 @@ import { UsersModule } from './modules/users/users.module.js';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard, // JWT 认证守卫 (验证访问令牌)
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard, // 角色守卫 (校验 @Roles 声明的接口级权限)
     },
 
     // =============================================================================

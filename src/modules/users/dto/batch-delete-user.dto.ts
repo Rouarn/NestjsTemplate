@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayNotEmpty, IsArray, IsUUID } from 'class-validator';
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsUUID } from 'class-validator';
 
 /**
  * 批量删除用户DTO
@@ -21,6 +21,8 @@ export class BatchDeleteUserDto {
   })
   @IsArray({ message: 'ids必须是数组' })
   @ArrayNotEmpty({ message: 'ids数组不能为空' })
+  // 批量接口必须有上限：否则一次请求可携带海量 ID，放大 IN 查询与事务开销
+  @ArrayMaxSize(100, { message: '单次最多删除100个用户' })
   @IsUUID('4', { each: true, message: '每个ID必须是有效的UUID' })
   ids!: string[];
 }

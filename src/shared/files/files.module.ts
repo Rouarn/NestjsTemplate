@@ -1,5 +1,5 @@
-import { BusinessException } from '#/common/exceptions/index.js';
-import { AppConfigService, ConfigModule } from '#/config/index.js';
+import { BusinessException } from '../../common/exceptions/index.js';
+import { AppConfigService, ConfigModule } from '../../config/index.js';
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -10,6 +10,7 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { FilesController } from './files.controller.js';
 import { File } from './entities/index.js';
+import { isBlockedUploadMime } from './files.constants.js';
 import { STORAGE_ADAPTER } from './interfaces/index.js';
 import { FilesService } from './services/files.service.js';
 import { StorageService } from './services/storage.service.js';
@@ -23,7 +24,8 @@ import { StorageService } from './services/storage.service.js';
         const { uploadsMaxSize, uploadsMaxFiles, uploadsAllowedTypes } =
           appConfigService.staticAssetsOptions;
 
-        // 白名单为空表示不做类型限制（与 validation.schema 的约定一致）
+        // 白名单默认值为「图片 + PDF」；留空表示不做白名单限制，
+        // 但可执行类型（HTML / SVG / JS / XML）始终由下方拒绝名单拦截
         const allowedTypes = uploadsAllowedTypes
           .split(',')
           .map((type) => type.trim())
@@ -49,6 +51,13 @@ import { StorageService } from './services/storage.service.js';
             files: uploadsMaxFiles,
           },
           fileFilter: (_req, file, callback) => {
+            // 先过安全拒绝名单：即使白名单被配置为放行，这些类型也一律拒绝
+            if (isBlockedUploadMime(file.mimetype)) {
+              return callback(
+                BusinessException.badRequest(`出于安全原因不允许上传该类型: ${file.mimetype}`),
+                false,
+              );
+            }
             if (allowedTypes.length > 0 && !allowedTypes.includes(file.mimetype)) {
               return callback(
                 BusinessException.badRequest(

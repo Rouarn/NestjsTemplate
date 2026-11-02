@@ -1,4 +1,4 @@
-import { BusinessException } from '#/common/exceptions/index.js';
+import { BusinessException } from '../exceptions/index.js';
 import { Injectable, ValidationPipe } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
 

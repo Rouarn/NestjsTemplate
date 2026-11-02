@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { AUTH_METADATA_KEYS } from '#/common/constants/index.js';
+import { AUTH_METADATA_KEYS } from '../constants/index.js';
 
 /**
  * 公共路由标识键

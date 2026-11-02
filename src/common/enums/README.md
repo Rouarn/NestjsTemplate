@@ -4,12 +4,12 @@
 
 ## 性别枚举（`gender.enum.ts`）
 
-- 枚举：`Gender`（`UNKNOWN=0`, `MALE=1`, `FEMALE=2`）
+- 枚举：`Gender`（`MALE=0`, `FEMALE=1`, `UNKNOWN=2`）
 - 常量与类型：
   - `GENDER_VALUES`: `[0, 1, 2]`
   - `GenderType`: `0 | 1 | 2`
-  - `GENDER_LABELS`: `{'0': '未知', '1': '男', '2': '女'}`
-  - `GENDER_EN_LABELS`: `{'0': 'Unknown', '1': 'Male', '2': 'Female'}`
+  - `GENDER_LABELS`: `{ 0: '男', 1: '女', 2: '未知' }`
+  - `GENDER_KEYS`: `{ 0: 'MALE', 1: 'FEMALE', 2: 'UNKNOWN' }`
 - 工具函数：
   - `isValidGender(value): value is Gender`
   - `getGenderLabel(gender): string`
@@ -35,6 +35,19 @@
   - `getStatusOptions(): { value, label, key, description }[]`
   - `toggleStatus(status): Status`（启用↔禁用）
   - `isEnabled(status): boolean` / `isDisabled(status): boolean`
+
+## 角色枚举（`role.enum.ts`）
+
+- 枚举：`Role`（字符串枚举，`ADMIN='admin'`、`USER='user'`）
+- 常量与类型：
+  - `ROLE_VALUES`: `['admin', 'user']`
+  - `RoleType`: 类型别名
+  - `ROLE_LABELS`: `{ admin: '管理员', user: '普通用户' }`
+- 工具函数：
+  - `isValidRole(value): value is Role`
+  - `isAdmin(role): boolean`（缺失角色按非管理员处理，失败关闭）
+- 使用方式：与 `@Roles()` 装饰器 + 全局 `RolesGuard` 配合完成接口级授权，
+  角色随访问令牌的 `role` 声明下发
 
 ## 最佳实践
 

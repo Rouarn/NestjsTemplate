@@ -1,24 +1,14 @@
 /**
  * 应用根服务
  *
- * 功能说明:
- * - 提供应用级别的基础服务
- * - 处理通用的业务逻辑
- *
- * 特点:
- * - 单例服务，全局可用
- * - 轻量级实现
- * - 可扩展的服务架构
- *
- * @author NestJS Template
- * @version 1.0.0
+ * 只负责读取构建期固化的 `package.json` 元信息，供 `/version`、`/info` 使用。
  */
-import { getErrorMessage } from '#/utils/index.js';
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Package.json 类型定义
+/** package.json 中本服务关心的字段 */
 interface PackageJson {
   name: string;
   version: string;
@@ -28,50 +18,44 @@ interface PackageJson {
 }
 
 /**
- * 应用根服务类
+ * package.json 的候选路径（按顺序取第一个存在的）
  *
- * 基本信息获取等通用服务
+ * 构建产物位于 `deploy/dist/`：
+ * - 开发期 cwd 是仓库根目录 → 命中根 package.json；
+ * - 部署包内 cwd 是部署目录 → 命中部署包 package.json；
+ * - 进程 cwd 被 PM2 等改成别处时，回退到模块相对路径（`deploy/package.json` / 根 package.json）。
  */
+const PACKAGE_JSON_CANDIDATES = [
+  join(process.cwd(), 'package.json'),
+  fileURLToPath(new URL('../../package.json', import.meta.url)),
+  fileURLToPath(new URL('../package.json', import.meta.url)),
+];
+
+/** 解析实际使用的 package.json 路径 */
+function resolvePackageJsonPath(): string {
+  const found = PACKAGE_JSON_CANDIDATES.find((candidate) => existsSync(candidate));
+  if (!found) {
+    throw new Error(`未找到 package.json，已尝试: ${PACKAGE_JSON_CANDIDATES.join(', ')}`);
+  }
+  return found;
+}
+
 @Injectable()
 export class AppService implements OnModuleInit {
   private packageJson!: PackageJson;
 
-  async onModuleInit(): Promise<void> {
-    // 在模块初始化时读取 package.json 文件，提供更好的错误处理
-    const packageJsonPath = join(process.cwd(), 'package.json');
-
-    if (!existsSync(packageJsonPath)) {
-      throw new Error(`package.json not found at ${packageJsonPath}`);
-    }
+  onModuleInit(): void {
+    const packageJsonPath = resolvePackageJsonPath();
 
     try {
-      const fileContent = readFileSync(packageJsonPath, 'utf8');
-      this.packageJson = JSON.parse(fileContent) as PackageJson;
+      this.packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as PackageJson;
     } catch (error) {
-      throw new Error(`Failed to read or parse package.json: ${getErrorMessage(error)}`);
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`读取 package.json 失败（${packageJsonPath}）: ${reason}`);
     }
   }
-  /**
-   * 获取应用欢迎信息
-   *
-   * 功能:
-   * - 返回应用的基本欢迎信息
-   * - 用于健康检查和服务状态验证
-   * - 动态获取应用名称和版本信息
-   *
-   * @returns 欢迎信息对象
-   *
-   * @example
-   * ```typescript
-   * const response = appService.getHello();
-   * console.log(response.message); // "Hello nestjs-template v0.0.1"
-   * ```
-   */
-  getHello(): {
-    message: string;
-    timestamp: string;
-    version: string;
-  } {
+
+  getHello(): { message: string; timestamp: string; version: string } {
     return {
       message: `Hello ${this.packageJson.name} v${this.packageJson.version}`,
       timestamp: new Date().toISOString(),
@@ -79,63 +63,12 @@ export class AppService implements OnModuleInit {
     };
   }
 
-  /**
-   * 获取应用版本信息
-   *
-   * 功能:
-   * - 从 package.json 动态获取应用版本号
-   * - 提供构建信息和应用描述
-   * - 支持版本管理和监控
-   *
-   * @returns 版本信息对象
-   *
-   * @example
-   * ```typescript
-   * const info = appService.getVersion();
-   * console.log(info.version); // "0.0.1"
-   * console.log(info.name); // "nestjs-template"
-   * ```
-   */
-  getVersion(): {
-    version: string;
-    name: string;
-    description?: string;
-    author?: string;
-    license?: string;
-  } {
-    return {
-      version: this.packageJson.version,
-      name: this.packageJson.name,
-      description: this.packageJson.description,
-      author: this.packageJson.author,
-      license: this.packageJson.license,
-    };
-  }
-
-  /**
-   * 获取应用完整信息
-   *
-   * 功能:
-   * - 返回应用的完整信息
-   * - 包含版本、描述、作者等详细信息
-   * - 用于系统信息展示和调试
-   *
-   * @returns 应用完整信息对象
-   *
-   * @example
-   * ```typescript
-   * const info = appService.getAppInfo();
-   * console.log(info);
-   * ```
-   */
   getAppInfo(): {
     name: string;
     version: string;
     description?: string;
     author?: string;
     license?: string;
-    environment: string;
-    nodeVersion: string;
     uptime: number;
   } {
     return {
@@ -144,8 +77,6 @@ export class AppService implements OnModuleInit {
       description: this.packageJson.description,
       author: this.packageJson.author,
       license: this.packageJson.license,
-      environment: process.env.NODE_ENV ?? 'development',
-      nodeVersion: process.version,
       uptime: process.uptime(),
     };
   }

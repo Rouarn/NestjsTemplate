@@ -1,4 +1,4 @@
-import { AppConfigService } from '#/config/index.js';
+import { AppConfigService } from '../../../config/index.js';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';

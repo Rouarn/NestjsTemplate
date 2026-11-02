@@ -1,5 +1,4 @@
+# pnpm 配置（单包仓库，仅用于集中声明构建脚本白名单等设置）
 allowBuilds:
   '@scarf/scarf': true
   unrs-resolver: true
-minimumReleaseAgeExclude:
-  - '@vakao-ui/scripts-utils@0.0.2'

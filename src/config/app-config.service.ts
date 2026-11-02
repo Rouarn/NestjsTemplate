@@ -1,144 +1,129 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CorsOptions } from 'cors';
-import type { Environment, StaticConfig } from './types.js';
+import type { CorsOptions } from 'cors';
+import type {
+  ApiConfig,
+  AppConfig,
+  AuthSecurityConfig,
+  DatabaseConfig,
+  Environment,
+  JwtConfig,
+  LoggerConfig,
+  StaticConfig,
+} from './types.js';
+
+/** 环境对应的展示后缀 */
+const ENVIRONMENT_SUFFIX: Record<Environment, string> = {
+  development: ' - 开发环境',
+  production: ' - 生产环境',
+  test: ' - 测试环境',
+};
+
+/**
+ * 本地开发来源判断（仅开发/测试环境生效）
+ *
+ * 允许 localhost 与常见内网网段，便于前端在局域网真机联调。
+ */
+const LOCAL_DEV_ORIGIN =
+  /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
 
 /**
  * 应用配置服务
  *
- * 提供应用程序所有配置项的统一访问接口。
+ * 对 `ConfigService` 的类型化封装：业务代码只依赖本服务，不直接读 `process.env`。
+ * 配置的默认值与校验在 `validation.schema.ts`，本服务不再做兜底或兼容处理。
  */
 @Injectable()
 export class AppConfigService {
-  constructor(private configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {}
 
-  // 应用基础配置
+  /** 完整配置快照 */
+  get raw(): AppConfig {
+    return this.configService.get<AppConfig>('app')!;
+  }
+
+  // ============================== 应用基础 ==============================
+
   get appTitle(): string {
-    const suffixMap: Record<Environment, string> = {
-      development: ' - 开发环境',
-      test: ' - 测试环境',
-      production: ' - 生产环境',
-    };
-
-    const baseTitle = this.configService.get<string>('app.title')!;
-    const environment = this.environment as Environment;
-    const suffix = suffixMap[environment] ?? '';
-
-    return `${baseTitle}${suffix}`;
+    const { title, environment } = this.raw;
+    return `${title}${ENVIRONMENT_SUFFIX[environment]}`;
   }
 
   get port(): number {
-    return this.configService.get<number>('app.port')!;
+    return this.raw.port;
   }
 
-  get environment(): string {
-    return this.configService.get<string>('app.environment')!;
-  }
-
-  get baseUrl(): string {
-    return this.configService.get<string>('app.baseUrl')!;
+  get environment(): Environment {
+    return this.raw.environment;
   }
 
   get isProduction(): boolean {
-    return this.environment === 'production';
+    return this.raw.environment === 'production';
   }
 
-  // JWT 认证配置
-  get jwtOptions(): {
-    secret: string;
-    accessTokenTtl: number;
-    refreshTokenTtl: number;
-  } {
-    return {
-      secret: this.configService.get<string>('app.jwt.secret')!,
-      accessTokenTtl: this.configService.get<number>('app.jwt.accessTokenTtl')!,
-      refreshTokenTtl: this.configService.get<number>('app.jwt.refreshTokenTtl')!,
-    };
+  get baseUrl(): string {
+    return this.raw.baseUrl;
   }
 
-  // Bcrypt 加密配置
+  /** Express `trust proxy` 取值（0 表示不信任代理） */
+  get trustProxy(): number {
+    return this.raw.server.trustProxy;
+  }
+
+  // ============================== 认证 ==============================
+
+  get jwtOptions(): JwtConfig {
+    return this.raw.jwt;
+  }
+
   get bcryptSaltRounds(): number {
-    return this.configService.get<number>('app.bcrypt.saltRounds')!;
+    return this.raw.bcrypt.saltRounds;
   }
 
-  // 认证安全配置
-  get authSecurityOptions(): {
-    maxLoginAttempts: number;
-    baseLockDuration: number;
-    maxLockDuration: number;
-  } {
-    return {
-      maxLoginAttempts: this.configService.get<number>('app.auth.maxLoginAttempts')!,
-      baseLockDuration: this.configService.get<number>('app.auth.baseLockDuration')!,
-      maxLockDuration: this.configService.get<number>('app.auth.maxLockDuration')!,
-    };
+  get authSecurityOptions(): AuthSecurityConfig {
+    return this.raw.auth;
   }
 
-  // 静态资源服务配置
+  // ============================== 静态资源 / 上传 ==============================
+
   get staticAssetsOptions(): StaticConfig {
-    return {
-      root: this.configService.get<string>('app.static.root')!,
-      prefix: this.configService.get<string>('app.static.prefix')!,
-      uploadsAllowedTypes: this.configService.get<string>('app.static.uploadsAllowedTypes')!,
-      uploadsMaxSize: this.configService.get<number>('app.static.uploadsMaxSize')!,
-      uploadsMaxFiles: this.configService.get<number>('app.static.uploadsMaxFiles')!,
-    };
+    return this.raw.static;
   }
 
-  // CORS 跨域配置
+  // ============================== CORS ==============================
+
   get corsOptions(): CorsOptions {
-    const allowList = this.configService.get<string[]>('app.cors.origin')!;
+    const allowList = this.raw.cors.origin;
 
-    // 生产环境：严格检查 Origin
-    if (this.isProduction) {
-      return {
-        origin: (requestOrigin, callback) => {
-          // 允许无 Origin 的请求 (如 curl, postman, server-to-server)
-          if (!requestOrigin) {
-            return callback(null, true);
-          }
-
-          // 检查是否在允许列表中
-          if (allowList.includes('*') || allowList.includes(requestOrigin)) {
-            return callback(null, true);
-          }
-
-          callback(new Error('不允许的跨域请求'));
-        },
-        credentials: true,
-      };
+    // 通配符与 credentials: true 组合等价于「反射任意 Origin 并允许携带凭证」，
+    // 属于配置事故的高发点，这里直接拒绝启动。
+    if (allowList.includes('*')) {
+      throw new Error(
+        'NEST_CORS_ORIGINS 不允许使用 "*"：本服务固定开启 credentials，请改为显式域名列表',
+      );
     }
 
-    // 开发/测试环境：允许所有 localhost 和局域网 IP
+    const isDev = !this.isProduction;
+    const isAllowedOrigin = (origin: string): boolean =>
+      allowList.includes(origin) || (isDev && LOCAL_DEV_ORIGIN.test(origin));
+
     return {
       origin: (requestOrigin, callback) => {
+        // 无 Origin 的请求（curl、服务间调用）不受同源策略约束，直接放行
         if (!requestOrigin) {
           return callback(null, true);
         }
-
-        // 允许白名单中的域名
-        if (allowList.includes('*') || allowList.includes(requestOrigin)) {
+        if (isAllowedOrigin(requestOrigin)) {
           return callback(null, true);
         }
-
-        // 允许本地开发环境
-        // 匹配: localhost, 127.0.0.1, 192.168.x.x, 10.x.x.x, 172.16-31.x.x
-        const isLocalDev =
-          /^(http|https):\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(
-            requestOrigin,
-          );
-
-        if (isLocalDev) {
-          return callback(null, true);
-        }
-
-        callback(null, false);
+        return callback(new Error(`不允许的跨域请求: ${requestOrigin}`));
       },
       credentials: true,
     };
   }
 
-  // Swagger API 文档配置
+  // ============================== Swagger ==============================
+
   get swaggerOptions(): {
     title: string;
     description: string;
@@ -147,92 +132,45 @@ export class AppConfigService {
     filename: string;
     enabled: boolean;
   } {
-    const suffixMap: Record<Environment, string> = {
-      development: ' - 开发版',
-      test: ' - 测试版',
-      production: ' - 生产版',
-    };
-    const environment = this.environment as Environment;
-    const suffix = suffixMap[environment] ?? '';
-
-    const baseTitle = this.configService.get<string>('app.swagger.title')!;
-    const description = this.configService.get<string>('app.swagger.description')!;
-    const title = `${baseTitle}${suffix}`;
+    const { swagger, api } = this.raw;
 
     return {
-      title,
-      description,
-      version: `V${this.configService.get<string>('app.api.version')!}`,
-      prefix: this.configService.get<string>('app.swagger.prefix')!,
-      filename: this.configService.get<string>('app.swagger.filename')!,
-      enabled: environment !== 'production',
+      title: this.appTitle,
+      description: swagger.description,
+      version: `V${api.version}`,
+      prefix: swagger.prefix,
+      filename: swagger.filename,
+      // 生产环境不挂载 Swagger：避免暴露完整接口面
+      enabled: !this.isProduction,
     };
   }
 
-  // 数据库连接配置
-  get databaseConfig(): {
-    type: 'mysql';
-    host: string;
-    port: number;
-    username: string | undefined;
-    password: string | undefined;
-    database: string | undefined;
-    tablePrefix: string;
-    timestamps: {
-      enabled: boolean;
-      createdAt: string;
-      updatedAt: string;
-    };
-    synchronize: boolean;
-    logging: boolean;
-    logger: 'simple-console';
-  } {
-    return {
-      type: 'mysql' as const,
-      host: this.configService.get<string>('app.database.host')!,
-      port: this.configService.get<number>('app.database.port')!,
-      username: this.configService.get<string>('app.database.username'),
-      password: this.configService.get<string>('app.database.password'),
-      database: this.configService.get<string>('app.database.database'),
-      tablePrefix: this.configService.get<string>('app.database.tablePrefix')!,
-      timestamps: {
-        enabled: this.configService.get<boolean>('app.database.timestamps.enabled')!,
-        createdAt: this.configService.get<string>('app.database.timestamps.createdAt')!,
-        updatedAt: this.configService.get<string>('app.database.timestamps.updatedAt')!,
-      },
-      synchronize: this.configService.get<boolean>('app.database.synchronize')!,
-      logging: this.configService.get<boolean>('app.database.logging')!,
-      logger: 'simple-console' as const,
-    };
+  // ============================== 数据库 ==============================
+
+  get database(): DatabaseConfig {
+    return this.raw.database;
   }
 
-  // API 版本控制配置
+  // ============================== API 版本控制 ==============================
+
   get apiVersioning(): {
     prefix: string;
     defaultVersion: string;
     type: 'uri' | 'header';
     header: string;
   } {
+    const api: ApiConfig = this.raw.api;
     return {
-      prefix: this.configService.get<string>('app.api.prefix')!,
-      defaultVersion: this.configService.get<string>('app.api.version')!,
-      type: this.configService.get<'uri' | 'header'>('app.api.type')!,
-      header: this.configService.get<string>('app.api.header')!,
+      prefix: api.prefix,
+      defaultVersion: api.version,
+      type: api.type,
+      header: api.header,
     };
   }
 
-  // 日志配置
-  get loggerOptions(): {
-    level: string;
-    dir: string;
-    maxFiles: string;
-    maxSize: string;
-  } {
-    return {
-      level: this.configService.get<string>('app.logger.level')!,
-      dir: this.configService.get<string>('app.logger.dir')!,
-      maxFiles: this.configService.get<string>('app.logger.maxFiles')!,
-      maxSize: this.configService.get<string>('app.logger.maxSize')!,
-    };
+  // ============================== 日志 ==============================
+
+  get loggerOptions(): LoggerConfig {
+    return this.raw.logger;
   }
 }

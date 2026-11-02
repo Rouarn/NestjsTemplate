@@ -1,9 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src",
-    "tsBuildInfoFile": "./deploy/dist/tsconfig.build.tsbuildinfo"
+    "outDir": "./deploy/dist",
+    "tsBuildInfoFile": "./deploy/dist/tsconfig.build.tsbuildinfo",
+    "sourceMap": false
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "deploy/dist", "**/*spec.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "deploy/dist", "**/*.spec.ts"]
 }
