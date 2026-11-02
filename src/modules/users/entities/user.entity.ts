@@ -1,7 +1,7 @@
-import { Gender, Status } from '../../../common/enums/index.js';
+import { Gender, Role, Status } from '../../../common/enums/index.js';
 import { BaseEntity } from '../../../database/index.js';
 import type { Auth } from '../../auth/entities/auth.entity.js';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiHideProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
@@ -79,6 +79,7 @@ export class User extends BaseEntity {
   // 安全说明：@Exclude 保证该关联不会被序列化进响应。Auth 实体上只排除了
   // password，其余字段（lastLoginIp / loginAttempts / lockedAt 等）属于
   // 认证内部状态，不应随用户资料接口下发。业务代码仍可直接读取 user.auth。
+  @ApiHideProperty()
   @Exclude()
   @OneToOne('Auth', 'user', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'auth_id' })
@@ -91,8 +92,41 @@ export class User extends BaseEntity {
    * 用于替代历史上「整个 auth 对象被序列化」的做法，保证列表接口仍能拿到状态。
    */
   @Expose()
-  @ApiPropertyOptional({ description: '账号状态（来自关联认证记录）', enum: Status })
+  @ApiPropertyOptional({ description: '账号状态（来自关联认证记录）', enum: Status, type: Number })
   get status(): Status | undefined {
     return this.auth?.status;
+  }
+
+  /**
+   * 登录名（只读投影）
+   *
+   * 认证表不再整体下发，但列表/详情仍需要一个可展示的账号标识，
+   * 因此只暴露 username 一个字段。
+   */
+  @Expose()
+  @ApiPropertyOptional({
+    description: '登录名（来自关联认证记录）',
+    type: String,
+    example: 'admin',
+  })
+  get username(): string | undefined {
+    return this.auth?.username;
+  }
+
+  /**
+   * 角色（只读投影）
+   *
+   * 供前端做菜单/按钮级可见性控制；接口权限仍由后端 `@Roles()` 独立校验，
+   * 前端过滤只影响展示，不能替代服务端鉴权。
+   */
+  @Expose()
+  @ApiPropertyOptional({
+    description: '角色（来自关联认证记录）',
+    enum: Role,
+    type: String,
+    example: Role.USER,
+  })
+  get role(): Role | undefined {
+    return this.auth?.role;
   }
 }

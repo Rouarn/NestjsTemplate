@@ -1,6 +1,7 @@
 import { Role, Status } from '../../../common/enums/index.js';
 import { BaseEntity } from '../../../database/index.js';
 import type { User } from '../../users/entities/user.entity.js';
+import { ApiHideProperty } from '@nestjs/swagger';
 import { Exclude } from 'class-transformer';
 import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
@@ -19,6 +20,7 @@ export class Auth extends BaseEntity {
   username!: string;
 
   // bcrypt 哈希已内嵌盐值，无需单独存盐
+  @ApiHideProperty()
   @Exclude()
   @Column({ name: 'password', comment: '密码', select: false })
   password!: string;
@@ -87,6 +89,7 @@ export class Auth extends BaseEntity {
   // 与 User 实体之间存在双向引用：这里同样使用「字符串目标 + type-only 导入」，
   // 避免 emitDecoratorMetadata 在装饰器求值阶段生成对 User 的强引用，
   // 从而消除两个实体模块之间的运行期循环依赖（深层单文件导入时不再 TDZ）。
+  @ApiHideProperty()
   @OneToOne('User', 'auth')
   user!: User;
 }
